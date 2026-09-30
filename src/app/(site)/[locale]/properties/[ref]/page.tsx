@@ -107,6 +107,16 @@ export default async function PropertyPage({ params }: PageProps<"/[locale]/prop
     { label: dict.property.ratePerSqft, value: d.pricePerSqft ? `₹${formatNumber(d.pricePerSqft)} ${dict.common.perSqft}` : "" },
   ].filter((f) => f.value);
 
+  // The particulars are laid out so that every row is full: the cells of a row share its width,
+  // and the rows are kept as even as the count allows. Four facts make one row of four, not four
+  // cells and a gap; six make two rows of three.
+  const perRow = (most: number) => Math.ceil(facts.length / Math.ceil(facts.length / most));
+  const factWidth = cn(
+    ["", "basis-full", "basis-1/2"][perRow(2)],
+    ["", "sm:basis-full", "sm:basis-1/2", "sm:basis-1/3"][perRow(3)],
+    ["", "lg:basis-full", "lg:basis-1/2", "lg:basis-1/3", "lg:basis-1/4", "lg:basis-1/5"][perRow(5)],
+  );
+
   // ---------- map
   const distances = d.pin ? computeDistances(d.pin, d.landmarks, locale) : [];
   // The places the survey measured to, nearest first, so nobody has to follow the lines across the map.
@@ -242,9 +252,9 @@ export default async function PropertyPage({ params }: PageProps<"/[locale]/prop
 
         {/* ---------- Particulars ---------- */}
         {facts.length ? (
-          <Reveal as="dl" mode="children" stagger={0.05} className="grid grid-cols-2 border-l border-t border-navy-900/12 sm:grid-cols-3 lg:grid-cols-5">
+          <Reveal as="dl" mode="children" stagger={0.05} className="flex flex-wrap border-l border-t border-navy-900/12">
             {facts.map((f) => (
-              <div key={f.label} className="border-b border-r border-navy-900/12 bg-paper-0 px-4 py-5 sm:px-5">
+              <div key={f.label} className={cn("min-w-0 grow border-b border-r border-navy-900/12 bg-paper-0 px-4 py-5 sm:px-5", factWidth)}>
                 <dt className="label-mono">{f.label}</dt>
                 <dd className="num mt-2 text-[1.05rem] font-semibold text-navy-900">{f.value}</dd>
               </div>
