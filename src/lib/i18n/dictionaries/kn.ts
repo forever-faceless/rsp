@@ -55,7 +55,7 @@ export const kn: Dictionary = {
     site: "ಸೈಟ್",
     price: "ಬೆಲೆ",
     onRequest: "ಬೆಲೆಗೆ ಕಾಲ್ ಮಾಡಿ",
-    negotiable: "ನೆಗೋಷಿಯಬಲ್",
+    negotiable: "ಸ್ವಲ್ಪ ನೆಗೋಷಿಯಬಲ್",
     from: "ಆರಂಭ",
     perSqft: "ಪ್ರತಿ ಚ.ಅಡಿಗೆ",
     all: "ಎಲ್ಲಾ",

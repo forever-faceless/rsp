@@ -105,7 +105,7 @@ export function PropertyForm({ property, action, submitLabel = "Save property", 
           <Input label="Rate per sq ft (₹)" name="pricePerSqft" type="number" min="0" inputMode="numeric" defaultValue={property?.pricePerSqft ?? ""} />
         </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <Checkbox label="Negotiable" name="negotiable" defaultChecked={property?.negotiable ?? false} hint="Shown beside the price on the website." />
+          <Checkbox label="Slightly negotiable" name="negotiable" defaultChecked={property?.negotiable ?? false} hint="Shown beside the price on the website, in these words." />
           <Checkbox label="Show “Call for price” on the website" name="callForPrice" defaultChecked={property?.callForPrice ?? false} hint="The figures above stay here for your own reference and are not shown to visitors." />
         </div>
       </Group>

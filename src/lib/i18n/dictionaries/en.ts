@@ -42,7 +42,7 @@ export const en = {
     site: "Site",
     price: "Price",
     onRequest: "Call for price",
-    negotiable: "Negotiable",
+    negotiable: "Slightly negotiable",
     from: "From",
     perSqft: "per sq ft",
     all: "All",
