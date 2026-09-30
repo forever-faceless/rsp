@@ -1,0 +1,588 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------
+   Brand tokens, sampled from the RSP Ventures logo: deep navy outlines,
+   brushed gold lettering, set on warm paper.
+------------------------------------------------------------------- */
+@theme {
+  --color-navy-950: #08111f;
+  --color-navy-900: #0d1a2d;
+  --color-navy-800: #14263f;
+  --color-navy-700: #1d3554;
+  --color-navy-600: #2b4a70;
+  --color-navy-500: #47648b;
+  --color-navy-400: #7289aa;
+  --color-navy-300: #a2b2c9;
+  --color-navy-200: #ccd6e3;
+  --color-navy-100: #e5eaf1;
+  --color-navy-50: #f2f5f8;
+
+  --color-gold-50: #fbf7ea;
+  --color-gold-100: #f6eccc;
+  --color-gold-200: #efdda0;
+  --color-gold-300: #e6cc7e;
+  --color-gold-400: #d7b56d;
+  --color-gold-500: #c29f55;
+  --color-gold-600: #a4843f;
+  --color-gold-700: #7f6429;
+  --color-gold-800: #5e4a1e;
+  --color-gold-900: #3f3114;
+
+  --color-paper-0: #ffffff;
+  --color-paper-50: #fbfaf6;
+  --color-paper-100: #f5f3ec;
+  --color-paper-200: #ece8dc;
+  --color-paper-300: #ddd7c6;
+  --color-paper-400: #c4bca6;
+
+  --color-ink-900: #0d1a2d;
+  --color-ink-800: #1f2d44;
+  --color-ink-700: #2f3e55;
+  --color-ink-600: #46566e;
+  --color-ink-500: #64738a;
+  --color-ink-400: #8794a8;
+  --color-ink-300: #aab4c3;
+
+  --color-success-700: #17623f;
+  --color-success-600: #1f7a4f;
+  --color-success-100: #e1f2e8;
+  --color-warning-700: #855400;
+  --color-warning-600: #a66a00;
+  --color-warning-100: #fbefd5;
+  --color-danger-700: #94291f;
+  --color-danger-600: #b3362b;
+  --color-danger-100: #f8e3e0;
+  --color-muted-600: #566175;
+  --color-muted-100: #e8ebf0;
+
+  --font-display: var(--font-display-latin), var(--font-display-kannada), "Arial Narrow", Arial, sans-serif;
+  --font-sans: var(--font-sans-latin), var(--font-sans-kannada), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-latin), ui-monospace, "Cascadia Mono", Menlo, monospace;
+
+  --shadow-card: 0 1px 0 rgb(13 26 45 / 0.04), 0 12px 32px -20px rgb(13 26 45 / 0.28);
+  --shadow-lift: 0 1px 0 rgb(13 26 45 / 0.05), 0 28px 48px -28px rgb(13 26 45 / 0.4);
+  --shadow-sheet: 0 1px 0 rgb(13 26 45 / 0.06), 0 40px 80px -40px rgb(13 26 45 / 0.45);
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Kannada pages lead with the Kannada faces so Latin digits and words
+   inside Kannada sentences share metrics with the surrounding text. */
+html[lang="kn"] {
+  --font-display: var(--font-display-kannada), var(--font-display-latin), sans-serif;
+  --font-sans: var(--font-sans-kannada), var(--font-sans-latin), ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+  --header-h: 68px;
+}
+@media (min-width: 1024px) {
+  :root {
+    --header-h: 76px;
+  }
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--header-h) + 16px);
+}
+
+body {
+  background: var(--color-paper-50);
+  color: var(--color-ink-700);
+  font-family: var(--font-sans);
+  font-feature-settings: "kern", "liga", "calt";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+html[lang="kn"] body {
+  line-height: 1.7;
+}
+
+::selection {
+  background: var(--color-gold-200);
+  color: var(--color-navy-900);
+}
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-stretch: 112%;
+    font-weight: 600;
+    color: var(--color-navy-900);
+    letter-spacing: -0.018em;
+    text-wrap: balance;
+  }
+  html[lang="kn"] h1,
+  html[lang="kn"] h2,
+  html[lang="kn"] h3,
+  html[lang="kn"] h4 {
+    font-stretch: 100%;
+    letter-spacing: 0;
+    line-height: 1.32;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-gold-500);
+    outline-offset: 2px;
+  }
+  [hidden] {
+    display: none !important;
+  }
+}
+
+@layer components {
+  /* A rubber stamp across a listing that has been sold. */
+  .sold-stamp {
+    @apply pointer-events-none absolute left-1/2 top-1/2 z-[2] whitespace-nowrap rounded-[3px] font-mono font-semibold uppercase text-danger-700;
+    transform: translate(-50%, -50%) rotate(-9deg);
+    padding: 0.42em 0.95em 0.36em;
+    font-size: clamp(1.15rem, 4.2vw, 1.6rem);
+    letter-spacing: 0.24em;
+    text-indent: 0.24em;
+    border: 2px solid currentColor;
+    outline: 1px solid currentColor;
+    outline-offset: 3px;
+    background: color-mix(in srgb, var(--color-paper-0) 82%, transparent);
+  }
+  :lang(kn) .sold-stamp {
+    font-family: inherit;
+    letter-spacing: 0.03em;
+    text-indent: 0.03em;
+  }
+  .sold-stamp-corner {
+    left: auto;
+    right: 1.2rem;
+    top: 1.1rem;
+    transform: rotate(6deg);
+    font-size: 0.92rem;
+  }
+
+  .container-x {
+    @apply mx-auto w-full max-w-[1240px] px-5 sm:px-8;
+  }
+
+  /* ---------- type ---------- */
+  .eyebrow {
+    @apply inline-flex items-center gap-3 font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-gold-700;
+  }
+  .eyebrow::before {
+    content: "";
+    @apply h-px w-7 shrink-0 bg-gold-500;
+  }
+  .eyebrow-plain::before {
+    display: none;
+  }
+  html[lang="kn"] .eyebrow {
+    @apply font-sans text-[13px] font-semibold tracking-normal;
+  }
+  .on-dark .eyebrow,
+  .eyebrow.on-dark {
+    @apply text-gold-300;
+  }
+  .display-1 {
+    @apply text-[2.35rem] leading-[1.04] sm:text-[3.1rem] lg:text-[3.75rem];
+  }
+  .display-2 {
+    @apply text-[1.85rem] leading-[1.1] sm:text-[2.35rem] lg:text-[2.7rem];
+  }
+  .display-3 {
+    @apply text-[1.35rem] leading-[1.2] sm:text-[1.6rem];
+  }
+  html[lang="kn"] .display-1 {
+    @apply text-[1.9rem] leading-[1.3] sm:text-[2.5rem] lg:text-[3rem];
+  }
+  html[lang="kn"] .display-2 {
+    @apply text-[1.6rem] leading-[1.35] sm:text-[2rem] lg:text-[2.3rem];
+  }
+  .lede {
+    @apply text-[1.05rem] leading-relaxed text-ink-600 sm:text-lg;
+  }
+  .prose-soft p + p {
+    @apply mt-4;
+  }
+  .label-mono {
+    @apply font-mono text-[10.5px] font-medium uppercase tracking-[0.16em] text-ink-500;
+  }
+  html[lang="kn"] .label-mono {
+    @apply font-sans text-xs font-semibold tracking-normal;
+  }
+  .num {
+    @apply font-mono tabular-nums tracking-tight;
+  }
+
+  /* ---------- property number ---------- */
+  .ref {
+    @apply inline-flex items-center whitespace-nowrap rounded-[2px] bg-navy-900 px-2 py-1 font-mono text-[12px] font-medium leading-none tracking-[0.06em] text-gold-200;
+  }
+  .ref-outline {
+    @apply inline-flex items-center whitespace-nowrap rounded-[2px] border border-navy-900/20 bg-paper-0 px-2 py-1 font-mono text-[12px] font-medium leading-none tracking-[0.06em] text-navy-800;
+  }
+  .ref-lg {
+    @apply px-3 py-1.5 text-[15px];
+  }
+
+  /* ---------- buttons ---------- */
+  .btn,
+  .btn-primary,
+  .btn-gold,
+  .btn-outline,
+  .btn-outline-light,
+  .btn-ghost,
+  .btn-danger {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-[3px] px-5 py-2.5 text-[14px] font-semibold leading-tight tracking-[0.01em] transition-[background-color,color,border-color,box-shadow,transform] duration-200 select-none active:translate-y-px disabled:pointer-events-none disabled:opacity-55;
+  }
+  .btn-primary {
+    @apply bg-navy-800 text-paper-0 hover:bg-navy-700;
+  }
+  .btn-gold {
+    @apply bg-gold-400 text-navy-950 hover:bg-gold-300;
+  }
+  .btn-outline {
+    @apply border border-navy-900/25 bg-transparent text-navy-800 hover:border-navy-800 hover:bg-navy-800 hover:text-paper-0;
+  }
+  .btn-outline-light {
+    @apply border border-paper-0/30 bg-transparent text-paper-0 hover:border-gold-300 hover:text-gold-200;
+  }
+  .btn-ghost {
+    @apply bg-transparent px-3 text-navy-800 hover:bg-navy-900/6;
+  }
+  .btn-danger {
+    @apply border border-danger-600/35 bg-transparent text-danger-700 hover:bg-danger-100;
+  }
+  .btn-sm {
+    @apply min-h-9 px-3.5 py-1.5 text-[13px];
+  }
+  .btn-lg {
+    @apply min-h-13 px-7 text-[15px];
+  }
+  .link-arrow {
+    @apply inline-flex items-center gap-1.5 text-[14px] font-semibold text-navy-800 underline decoration-gold-500 decoration-2 underline-offset-[6px] transition-colors hover:text-gold-700;
+  }
+
+  /* ---------- surfaces ---------- */
+  .card {
+    @apply rounded-[4px] border border-navy-900/10 bg-paper-0;
+  }
+  .card-hover {
+    @apply transition-[border-color,box-shadow,transform] duration-300 hover:border-navy-900/25 hover:shadow-card;
+  }
+  .surface-navy {
+    background-color: var(--color-navy-900);
+    color: var(--color-navy-200);
+  }
+  .surface-navy h1,
+  .surface-navy h2,
+  .surface-navy h3,
+  .surface-navy h4 {
+    color: var(--color-paper-50);
+  }
+  .rule {
+    @apply h-px w-full bg-navy-900/10;
+  }
+  .gold-rule {
+    @apply h-[3px] w-14 bg-gold-500;
+  }
+  /* Faint survey grid, used behind hero areas and plot drawings. */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgb(20 38 63 / 0.055) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(20 38 63 / 0.055) 1px, transparent 1px);
+    background-size: 36px 36px;
+  }
+  .bg-grid-dark {
+    background-image:
+      linear-gradient(to right, rgb(230 204 126 / 0.07) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(230 204 126 / 0.07) 1px, transparent 1px);
+    background-size: 36px 36px;
+  }
+
+  /* ---------- badges ---------- */
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-[2px] px-2 py-1 text-[11px] font-semibold leading-none tracking-[0.04em];
+  }
+  .badge-dot::before {
+    content: "";
+    @apply h-1.5 w-1.5 rounded-full bg-current;
+  }
+
+  /* ---------- forms ---------- */
+  .field {
+    @apply w-full rounded-[3px] border border-navy-900/18 bg-paper-0 px-3.5 py-2.5 text-[15px] text-ink-900 placeholder:text-ink-300 focus:border-navy-700 focus:ring-2 focus:ring-gold-300/70 focus:outline-none disabled:bg-paper-100 disabled:text-ink-500;
+  }
+  select.field {
+    @apply appearance-none bg-no-repeat pr-9;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5l5-5' stroke='%2346566E' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-position: right 0.9rem center;
+  }
+  .field-error {
+    @apply border-danger-600 focus:border-danger-600 focus:ring-danger-100;
+  }
+  .label {
+    @apply mb-1.5 block text-[13px] font-semibold text-ink-800;
+  }
+  .help {
+    @apply mt-1.5 text-xs leading-relaxed text-ink-500;
+  }
+  .check {
+    @apply mt-0.5 h-[18px] w-[18px] shrink-0 rounded-[2px] border-navy-900/30 accent-navy-800;
+  }
+
+  /* ---------- tables ---------- */
+  .table-reg {
+    @apply w-full border-collapse text-left;
+  }
+  .table-reg th {
+    @apply border-b border-navy-900/15 px-3 py-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] whitespace-nowrap text-ink-500;
+  }
+  html[lang="kn"] .table-reg th {
+    @apply font-sans text-xs font-semibold tracking-normal;
+  }
+  .table-reg td {
+    @apply border-b border-navy-900/8 px-3 py-3.5 align-middle text-[14px] text-ink-700;
+  }
+  .table-reg tbody tr:last-child td {
+    @apply border-b-0;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Motion. Elements marked data-reveal start hidden only when the inline
+   script in <head> has confirmed that scripting and motion are both on,
+   so the page is fully readable without JavaScript.
+------------------------------------------------------------------- */
+html.motion [data-reveal]:not([data-revealed]) {
+  opacity: 0;
+}
+html.motion [data-reveal="children"]:not([data-revealed]) {
+  opacity: 1;
+}
+html.motion [data-reveal="children"]:not([data-revealed]) > * {
+  opacity: 0;
+}
+html.motion [data-hero-hide]:not([data-revealed]) {
+  visibility: hidden;
+}
+
+/* Page curtain shown while a property page opens. It removes itself with CSS
+   after a few seconds even if the script that lifts it never runs. */
+.curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-navy-900);
+  animation: curtain-failsafe 0.01s linear 4.5s forwards;
+}
+@keyframes curtain-failsafe {
+  to {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+.curtain-line {
+  transform-origin: left center;
+  animation: curtain-line 1.6s var(--ease-out-expo) infinite;
+}
+@keyframes curtain-line {
+  0% {
+    transform: scaleX(0);
+    transform-origin: left center;
+  }
+  50% {
+    transform: scaleX(1);
+    transform-origin: left center;
+  }
+  50.01% {
+    transform-origin: right center;
+  }
+  100% {
+    transform: scaleX(0);
+    transform-origin: right center;
+  }
+}
+/* A band of light crossing the gold, the way brushed metal catches a lamp. */
+.sheen {
+  position: relative;
+  overflow: hidden;
+}
+.sheen::after {
+  content: "";
+  position: absolute;
+  inset: -20% -60%;
+  background: linear-gradient(105deg, transparent 42%, rgb(255 255 255 / 0.55) 50%, transparent 58%);
+  transform: translateX(-60%);
+  animation: sheen 2.2s ease-in-out 0.2s infinite;
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+@keyframes sheen {
+  0% {
+    transform: translateX(-60%);
+  }
+  60%,
+  100% {
+    transform: translateX(60%);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .curtain {
+    display: none;
+  }
+  .sheen::after,
+  .curtain-line {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Leaflet, restyled to match.
+------------------------------------------------------------------- */
+.leaflet-container {
+  font-family: var(--font-sans);
+  background: var(--color-paper-200);
+  z-index: 0;
+}
+.leaflet-popup-content-wrapper {
+  border-radius: 4px;
+  box-shadow: var(--shadow-lift);
+  color: var(--color-ink-800);
+}
+.leaflet-popup-content {
+  margin: 12px 14px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.leaflet-popup-content a {
+  color: var(--color-navy-800);
+  font-weight: 600;
+}
+.leaflet-bar {
+  border: 1px solid rgb(13 26 45 / 0.18) !important;
+  border-radius: 3px !important;
+  box-shadow: none !important;
+}
+.leaflet-bar a {
+  color: var(--color-navy-800) !important;
+  width: 34px !important;
+  height: 34px !important;
+  line-height: 34px !important;
+}
+.leaflet-bar a:first-child {
+  border-radius: 2px 2px 0 0 !important;
+}
+.leaflet-bar a:last-child {
+  border-radius: 0 0 2px 2px !important;
+}
+.leaflet-control-attribution {
+  font-size: 10px;
+  background: rgb(251 250 246 / 0.82) !important;
+  color: var(--color-ink-600);
+}
+.rsp-marker {
+  background: transparent;
+  border: 0;
+}
+.rsp-dim {
+  background: rgb(13 26 45 / 0.88);
+  color: var(--color-gold-200);
+  border: 0;
+  border-radius: 2px;
+  padding: 2px 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+  box-shadow: none;
+}
+.rsp-dim::before {
+  display: none;
+}
+.rsp-dim-light {
+  background: rgb(255 255 255 / 0.92);
+  color: var(--color-navy-900);
+}
+.rsp-tip {
+  background: var(--color-navy-900);
+  color: var(--color-paper-50);
+  border: 0;
+  border-radius: 2px;
+  padding: 3px 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  box-shadow: none;
+}
+.rsp-tip::before {
+  display: none;
+}
+/* The name on the property's own pin, set apart from the tags of the places around it. */
+.leaflet-tooltip.rsp-tip-main {
+  z-index: 1;
+  background: var(--color-navy-900);
+  color: var(--color-gold-200);
+  border: 1px solid var(--color-gold-500);
+  letter-spacing: 0.02em;
+}
+
+/* Reserve room for the mobile sticky action bar. */
+@media (max-width: 767px) {
+  body.has-sticky-bar {
+    padding-bottom: 4.25rem;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  /* Sections that have not been scrolled to yet must still appear on paper. */
+  [data-reveal],
+  [data-reveal] > *,
+  [data-hero-hide] {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+  }
+  header.sticky {
+    position: static;
+  }
+}

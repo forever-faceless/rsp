@@ -1,0 +1,36 @@
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  // Tests build into their own folder, so checking a change never disturbs the running site.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "*.public.blob.vercel-storage.com" }],
+  },
+  experimental: {
+    serverActions: {
+      // Admin photo uploads (several photos per submit) exceed the 1 MB default.
+      // Vercel enforces its own 4.5 MB cap; photos are compressed in the browser to stay under it.
+      bodySizeLimit: "40mb",
+    },
+  },
+  // Drizzle migrations are read from disk at runtime, so ship them with the server bundle.
+  outputFileTracingIncludes: {
+    "/*": ["./drizzle/**/*"],
+  },
+  async headers() {
+    return [
+      {
+        // The field survey tool needs the phone's GPS; everything else is denied by default.
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Permissions-Policy", value: "geolocation=(self), camera=(), microphone=()" },
+        ],
+      },
+    ];
+  },
+};
+
+export default nextConfig;
