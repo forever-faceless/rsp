@@ -13,9 +13,10 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "40mb",
     },
   },
-  // Drizzle migrations are read from disk at runtime, so ship them with the server bundle.
+  // Read from disk at runtime, so they are shipped with the server bundle: the Drizzle
+  // migrations, and the type and logo that link-preview pictures are drawn with.
   outputFileTracingIncludes: {
-    "/*": ["./drizzle/**/*"],
+    "/*": ["./drizzle/**/*", "./src/assets/fonts/*.ttf", "./public/brand/logo-wide.png"],
   },
   async headers() {
     return [

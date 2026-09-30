@@ -32,7 +32,13 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/projects
     title: pick(project, "name", locale),
     description: pick(project, "tagline", locale) || pick(project, "description", locale).slice(0, 160),
     alternates: { canonical: `/${locale}/projects/${project.slug}`, languages: { en: `/en/projects/${project.slug}`, kn: `/kn/projects/${project.slug}` } },
-    openGraph: project.coverImage ? { images: [{ url: project.coverImage }] } : undefined,
+    openGraph: {
+      type: "website",
+      siteName: getDictionary(locale).meta.siteName,
+      locale: locale === "kn" ? "kn_IN" : "en_IN",
+      url: `/${locale}/projects/${project.slug}`,
+      images: [project.coverImage ? { url: project.coverImage } : { url: "/brand/og.png", width: 1200, height: 630 }],
+    },
   };
 }
 

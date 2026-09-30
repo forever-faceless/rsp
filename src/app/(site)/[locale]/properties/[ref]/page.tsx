@@ -22,6 +22,7 @@ import { formatCoords, formatFeet, googleDirectionsLink, googleMapsLink } from "
 import { fill, getDictionary, isLocale, localePath, pick, pickItem } from "@/lib/i18n";
 import { lookupListing } from "@/lib/listing-detail";
 import { planFromCorners, planFromDimensions } from "@/lib/plan";
+import { priceLine } from "@/lib/pricing";
 import { formatSiteNo } from "@/lib/refs";
 import { measureDistance, measureFt, surveySides } from "@/lib/survey";
 import { formatMetres } from "@/lib/units";
@@ -36,14 +37,26 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/properti
   const dict = getDictionary(locale);
   const name = pick(d, "title", locale);
   const title = d.kind === "site" ? `${d.ref} · ${fill(dict.site.inProject, { site: formatSiteNo(d.siteNo ?? 0), project: name })}` : `${d.ref} · ${name}`;
-  const facts = [dict.types[d.type], d.dimension ? `${d.dimension} ${dict.common.ft}` : "", d.areaSqft ? formatArea(d.areaSqft, d.areaUnit, locale) : "", pick(d, "location", locale), dict.status.listing[d.status]]
+  // What a shared link says under its picture: what it is, its size, where it is, and the price if one is shown.
+  const facts = [
+    dict.types[d.type],
+    d.dimension ? `${d.dimension} ${dict.common.ft}` : "",
+    d.areaSqft ? formatArea(d.areaSqft, d.areaUnit, locale) : "",
+    d.facing ? `${dict.facing[d.facing]} ${dict.facing.label.toLowerCase()}` : "",
+    pick(d, "location", locale),
+    priceLine(d.price, d.pricePerSqft, dict.common.perSqft, locale),
+    dict.status.listing[d.status],
+  ]
     .filter(Boolean)
     .join(" · ");
+  const address = `/${locale}/properties/${d.slug}`;
   return {
     title,
     description: facts,
-    alternates: { canonical: `/${locale}/properties/${d.slug}`, languages: { en: `/en/properties/${d.slug}`, kn: `/kn/properties/${d.slug}` } },
-    openGraph: d.images[0] ? { images: [{ url: d.images[0] }] } : undefined,
+    alternates: { canonical: address, languages: { en: `/en/properties/${d.slug}`, kn: `/kn/properties/${d.slug}` } },
+    // The picture comes from opengraph-image.tsx beside this page.
+    openGraph: { type: "website", siteName: dict.meta.siteName, locale: locale === "kn" ? "kn_IN" : "en_IN", url: address, title, description: facts },
+    twitter: { card: "summary_large_image", title, description: facts },
   };
 }
 
@@ -90,7 +103,6 @@ export default async function PropertyPage({ params }: PageProps<"/[locale]/prop
     { label: dict.property.bedrooms, value: d.bedrooms ? String(d.bedrooms) : "" },
     { label: dict.property.floors, value: d.floors ? String(d.floors) : "" },
     { label: dict.facing.label, value: d.facing ? dict.facing[d.facing] : "" },
-    { label: dict.property.road, value: d.roadWidthFt ? formatFeet(d.roadWidthFt) : "" },
     { label: dict.common.cornerSite, value: d.corner ? dict.common.yes : "" },
     { label: dict.property.ratePerSqft, value: d.pricePerSqft ? `₹${formatNumber(d.pricePerSqft)} ${dict.common.perSqft}` : "" },
   ].filter((f) => f.value);
