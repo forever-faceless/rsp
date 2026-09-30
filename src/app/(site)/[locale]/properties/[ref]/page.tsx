@@ -303,38 +303,6 @@ export default async function PropertyPage({ params }: PageProps<"/[locale]/prop
           </section>
         ) : null}
 
-        {/* ---------- Site plan ---------- */}
-        {shape ? (
-          <section>
-            <Reveal>
-              <p className="eyebrow">{d.ref}</p>
-              <h2 className="display-2 mt-4">{dict.property.plan}</h2>
-            </Reveal>
-            <Reveal className="mt-8">
-              <PlanPanel
-                dict={dict}
-                shape={shape}
-                refText={d.ref}
-                areaLabel={planArea}
-                perimeterFt={perimeter}
-                roadLabel={d.roadWidthFt ? `${formatFeet(d.roadWidthFt)} ${dict.projects.road}` : undefined}
-              />
-            </Reveal>
-          </section>
-        ) : null}
-
-        {/* ---------- Video ---------- */}
-        {d.videos.length ? (
-          <section>
-            <Reveal>
-              <h2 className="display-2">{d.videos.length > 1 ? dict.common.videos : dict.common.video}</h2>
-            </Reveal>
-            <Reveal className="mt-8">
-              <VideoGallery videos={d.videos} title={d.ref} watchLabel={dict.common.watchVideo} />
-            </Reveal>
-          </section>
-        ) : null}
-
         {/* ---------- Location ---------- */}
         {d.pin ? (
           <section>
@@ -379,6 +347,38 @@ export default async function PropertyPage({ params }: PageProps<"/[locale]/prop
                   </div>
                 </div>
               ) : null}
+            </Reveal>
+          </section>
+        ) : null}
+
+        {/* ---------- Site plan ---------- */}
+        {shape ? (
+          <section>
+            <Reveal>
+              <p className="eyebrow">{d.ref}</p>
+              <h2 className="display-2 mt-4">{dict.property.plan}</h2>
+            </Reveal>
+            <Reveal className="mt-8">
+              <PlanPanel
+                dict={dict}
+                shape={shape}
+                refText={d.ref}
+                areaLabel={planArea}
+                perimeterFt={perimeter}
+                roadLabel={d.roadWidthFt ? `${formatFeet(d.roadWidthFt)} ${dict.projects.road}` : undefined}
+              />
+            </Reveal>
+          </section>
+        ) : null}
+
+        {/* ---------- Video ---------- */}
+        {d.videos.length ? (
+          <section>
+            <Reveal>
+              <h2 className="display-2">{d.videos.length > 1 ? dict.common.videos : dict.common.video}</h2>
+            </Reveal>
+            <Reveal className="mt-8">
+              <VideoGallery videos={d.videos} title={d.ref} watchLabel={dict.common.watchVideo} />
             </Reveal>
           </section>
         ) : null}
