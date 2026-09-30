@@ -47,6 +47,28 @@ export function computeDistances(origin: { lat: number; lng: number }, landmarks
     .sort((a, b) => a.landmark.sortOrder - b.landmark.sortOrder || a.km - b.km);
 }
 
+/** A place the survey measured to, and how far it is. */
+export type MeasuredDistance = { id: string; name: string; distance: string };
+
+/**
+ * The distances measured in the survey, as a list: the same figures the map carries on its
+ * lines, readable without moving the map about.
+ */
+export function MeasuredList({ items }: { items: MeasuredDistance[] }) {
+  if (!items.length) return null;
+  return (
+    <ul className="divide-y divide-navy-900/8" data-measured>
+      {items.map((item) => (
+        <li key={item.id} className="flex items-center gap-4 py-3.5">
+          <MapPin className="h-5 w-5 shrink-0 text-navy-800/55" strokeWidth={1.6} aria-hidden="true" />
+          <p className="min-w-0 flex-1 text-[14.5px] font-semibold leading-snug text-navy-900">{item.name}</p>
+          <p className="num shrink-0 text-[14.5px] font-semibold text-navy-900">{item.distance}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function LandmarkList({ items, locale, dict }: { items: LandmarkDistance[]; locale: Locale; dict: Dictionary }) {
   if (!items.length) return null;
   return (

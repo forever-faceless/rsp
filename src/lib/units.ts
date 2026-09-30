@@ -45,8 +45,9 @@ export function fromSqft(sqft: number, unit: LengthUnit): number {
  * between places are always given in metres, unlike the sides of a plot, which the market
  * quotes in feet.
  */
-export function formatMetres(feet: number): string {
+export function formatMetres(feet: number, locale: "en" | "kn" = "en"): string {
   const metres = feet * M_PER_FT;
-  if (metres >= 1000) return `${Number((metres / 1000).toFixed(2))} km`;
-  return `${metres >= 100 ? Math.round(metres) : Math.round(metres * 10) / 10} m`;
+  const [m, km] = locale === "kn" ? ["ಮೀ", "ಕಿ.ಮೀ"] : ["m", "km"];
+  if (metres >= 1000) return `${Number((metres / 1000).toFixed(2))} ${km}`;
+  return `${metres >= 100 ? Math.round(metres) : Math.round(metres * 10) / 10} ${m}`;
 }

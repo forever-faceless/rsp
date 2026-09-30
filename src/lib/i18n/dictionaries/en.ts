@@ -254,6 +254,7 @@ export const en = {
     coordinates: "Coordinates",
     nearby: "Distances",
     nearbyText: "Straight-line distance from the property. Drive times are approximate.",
+    measuredText: "Straight-line distances, measured on the survey map.",
     driveTime: "drive",
     statusNote: {
       available: "This property is available.",

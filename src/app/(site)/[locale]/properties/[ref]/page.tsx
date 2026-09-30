@@ -10,7 +10,7 @@ import { Breadcrumbs } from "@/components/site/Breadcrumbs";
 import { EnquiryForm } from "@/components/site/EnquiryForm";
 import { EnquiryPanel } from "@/components/site/EnquiryPanel";
 import { Gallery } from "@/components/site/Gallery";
-import { computeDistances, LandmarkList } from "@/components/site/LandmarkList";
+import { computeDistances, LandmarkList, MeasuredList } from "@/components/site/LandmarkList";
 import { ListingCard } from "@/components/site/ListingCard";
 import { CallButton, WhatsAppButton } from "@/components/site/PhoneLinks";
 import { PlanPanel } from "@/components/site/PlanPanel";
@@ -23,7 +23,8 @@ import { fill, getDictionary, isLocale, localePath, pick, pickItem } from "@/lib
 import { lookupListing } from "@/lib/listing-detail";
 import { planFromCorners, planFromDimensions } from "@/lib/plan";
 import { formatSiteNo } from "@/lib/refs";
-import { measureDistance, surveySides } from "@/lib/survey";
+import { measureDistance, measureFt, surveySides } from "@/lib/survey";
+import { formatMetres } from "@/lib/units";
 import { cn, formatArea, formatINR, formatINRShort, formatNumber, telHref } from "@/lib/utils";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/properties/[ref]">): Promise<Metadata> {
@@ -96,6 +97,13 @@ export default async function PropertyPage({ params }: PageProps<"/[locale]/prop
 
   // ---------- map
   const distances = d.pin ? computeDistances(d.pin, d.landmarks, locale) : [];
+  // The places the survey measured to, nearest first, so nobody has to follow the lines across the map.
+  const measured = (d.geometry?.measures ?? [])
+    .filter((m) => m.label.trim())
+    .map((m) => ({ id: m.id, name: m.label.trim(), ft: measureFt(m) }))
+    .sort((a, b) => a.ft - b.ft)
+    .map((m) => ({ id: m.id, name: m.name, distance: formatMetres(m.ft, locale) }));
+  const hasNearby = measured.length > 0 || distances.length > 0;
   const plots: MapPlot[] = surveyed ? [{ id: "plot", corners, label: d.ref, status: d.status, active: true, sideLabels: surveySides(corners).map((s) => formatFeet(s.ft)) }] : [];
   const lines: MapLine[] = [
     ...(d.geometry?.measures ?? []).map((m) => ({ id: m.id, a: m.a, b: m.b, label: measureDistance(m), endLabel: m.label || undefined })),
@@ -349,7 +357,7 @@ export default async function PropertyPage({ params }: PageProps<"/[locale]/prop
                 </a>
               </div>
             </Reveal>
-            <Reveal className={cn("mt-8 grid gap-6", distances.length > 0 && "lg:grid-cols-[1.4fr_0.6fr]")}>
+            <Reveal className={cn("mt-8 grid gap-6", hasNearby && "lg:grid-cols-[1.4fr_0.6fr]")}>
               <div className="card h-[380px] overflow-hidden sm:h-[460px] lg:h-[540px]">
                 <MapLoader
                   pins={pins}
@@ -361,11 +369,12 @@ export default async function PropertyPage({ params }: PageProps<"/[locale]/prop
                   labels={{ map: dict.common.map, satellite: dict.common.satellite, interact: dict.common.useMap }}
                 />
               </div>
-              {distances.length ? (
+              {hasNearby ? (
                 <div className="card p-5 sm:p-6">
                   <h3 className="text-[1.2rem]">{dict.property.nearby}</h3>
-                  <p className="mt-1 text-[12.5px] text-ink-500">{isSite ? dict.projects.nearbyText : dict.property.nearbyText}</p>
-                  <div className="mt-3">
+                  <p className="mt-1 text-[12.5px] text-ink-500">{distances.length ? (isSite ? dict.projects.nearbyText : dict.property.nearbyText) : dict.property.measuredText}</p>
+                  <div className={cn("mt-3", measured.length > 0 && distances.length > 0 && "divide-y divide-navy-900/8")}>
+                    <MeasuredList items={measured} />
                     <LandmarkList items={distances} locale={locale} dict={dict} />
                   </div>
                 </div>

@@ -266,6 +266,7 @@ export const kn: Dictionary = {
     coordinates: "ಕೋಆರ್ಡಿನೇಟ್ಸ್",
     nearby: "ದೂರ",
     nearbyText: "ಪ್ರಾಪರ್ಟಿಯಿಂದ ನೇರ ದೂರ. ಪ್ರಯಾಣದ ಸಮಯ ಅಂದಾಜು.",
+    measuredText: "ನೇರ ದೂರ, ಸರ್ವೆ ಮ್ಯಾಪ್‌ನಲ್ಲಿ ಅಳೆದಿದ್ದು.",
     driveTime: "ಪ್ರಯಾಣ",
     statusNote: {
       available: "ಈ ಪ್ರಾಪರ್ಟಿ ಲಭ್ಯವಿದೆ.",
