@@ -4,7 +4,7 @@ import type { Listing } from "@/lib/db/queries";
 import type { SurveyCorner } from "@/lib/db/enums";
 import { fill, localePath, pick, type Dictionary, type Locale } from "@/lib/i18n";
 import { formatRef, refSlug } from "@/lib/refs";
-import { cn, formatArea, formatINRShort } from "@/lib/utils";
+import { cn, formatArea, formatINRShort, formatNumber } from "@/lib/utils";
 import { ListingMedia } from "./ListingMedia";
 import { ListingStatusBadge, SoldStamp } from "./StatusBadge";
 
@@ -94,6 +94,11 @@ export function ListingCard({ listing, locale, dict, corners, priority, classNam
           <p>
             {listing.price ? (
               <span className="font-display text-[1.35rem] font-semibold text-navy-900 [font-stretch:108%]">{formatINRShort(listing.price, locale)}</span>
+            ) : listing.pricePerSqft ? (
+              <>
+                <span className="font-display text-[1.35rem] font-semibold text-navy-900 [font-stretch:108%]">₹{formatNumber(listing.pricePerSqft)}</span>{" "}
+                <span className="text-[13px] font-medium text-ink-600">{dict.common.perSqft}</span>
+              </>
             ) : (
               <span className="text-[14px] font-medium text-ink-600">{dict.common.onRequest}</span>
             )}

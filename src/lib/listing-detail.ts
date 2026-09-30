@@ -3,6 +3,7 @@ import type { Approval, AreaUnit, BilingualItem, Facing, ListingStatus, Property
 import { findByNo, getSite, getSurveyFor, listLandmarks } from "@/lib/db/queries";
 import type { Landmark, Project } from "@/lib/db/schema";
 import { isValidLatLng } from "@/lib/geo";
+import { publicPrice } from "@/lib/pricing";
 import { formatRef, parseRef, refSlug } from "@/lib/refs";
 import { geometryOf, hasGeometry, surveyCentre } from "@/lib/survey";
 
@@ -101,8 +102,7 @@ export async function lookupListing(rawRef: string): Promise<ListingLookup> {
         descriptionEn: site.descriptionEn,
         descriptionKn: site.descriptionKn,
         status: site.status,
-        price: site.callForPrice || project.callForPrice ? null : site.price,
-        pricePerSqft: site.callForPrice || project.callForPrice ? null : (site.pricePerSqft ?? project.pricePerSqft),
+        ...publicPrice({ price: site.price, pricePerSqft: site.pricePerSqft ?? project.pricePerSqft, priceDisplay: site.priceDisplay }, site.callForPrice || project.callForPrice),
         negotiable: false,
         dimension: site.dimension,
         widthFt: site.widthFt,
@@ -157,8 +157,7 @@ export async function lookupListing(rawRef: string): Promise<ListingLookup> {
       descriptionEn: property.descriptionEn,
       descriptionKn: property.descriptionKn,
       status: property.status,
-      price: property.callForPrice ? null : property.price,
-      pricePerSqft: property.callForPrice ? null : property.pricePerSqft,
+      ...publicPrice(property, property.callForPrice),
       negotiable: property.callForPrice ? false : property.negotiable,
       dimension: property.dimension,
       widthFt: property.widthFt,

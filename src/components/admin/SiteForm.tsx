@@ -48,11 +48,22 @@ export function SiteForm({ site, action, submitLabel = "Save site", prefix, proj
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <SizeFields widthFt={site?.widthFt} depthFt={site?.depthFt} dimension={site?.dimension} areaSqft={site?.areaSqft} />
       </div>
-      <div className="grid gap-5 sm:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <MeasureInput label="Road in front" name="roadWidthFt" defaultValue={site?.roadWidthFt} />
         <Input label="Rate per sq ft (₹)" name="pricePerSqft" type="number" min="0" inputMode="numeric" defaultValue={site?.pricePerSqft ?? ""} />
-        <Input label="Total price (₹)" name="price" type="number" min="0" step="1000" inputMode="numeric" defaultValue={site?.price ?? ""} hint="Leave blank to show “Call for price”." />
+        <Input label="Total price (₹)" name="price" type="number" min="0" step="1000" inputMode="numeric" defaultValue={site?.price ?? ""} />
+        <Select
+          label="Show on the website"
+          name="priceDisplay"
+          defaultValue={site?.priceDisplay ?? "both"}
+          options={[
+            { value: "both", label: "Total price and rate per sq ft" },
+            { value: "total", label: "Total price only" },
+            { value: "rate", label: "Rate per sq ft only" },
+          ]}
+        />
       </div>
+      <p className="help">The figure you choose not to show stays here for your own reference. With nothing to show, the website says “Call for price”.</p>
       <Checkbox label="Show “Call for price” on the website" name="callForPrice" defaultChecked={site?.callForPrice ?? false} hint="The figures above stay here for your own reference and are not shown to visitors." />
       <div className="grid gap-5 md:grid-cols-2">
         <Textarea label="Description (English)" name="descriptionEn" rows={4} defaultValue={site?.descriptionEn} />

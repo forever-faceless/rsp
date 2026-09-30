@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import type { Approval, BilingualItem, SurveyCorner, SurveyMeasure, SurveyPoint, VideoItem } from "./enums";
-import { AREA_UNITS, FACINGS, LANDMARK_CATEGORIES, LEAD_KINDS, LEAD_PURPOSES, LEAD_STATUSES, LISTING_STATUSES, PROJECT_STATUSES, PROPERTY_TYPES } from "./enums";
+import { AREA_UNITS, FACINGS, LANDMARK_CATEGORIES, LEAD_KINDS, LEAD_PURPOSES, LEAD_STATUSES, LISTING_STATUSES, PRICE_DISPLAYS, PROJECT_STATUSES, PROPERTY_TYPES } from "./enums";
 
 export * from "./enums";
 
@@ -166,6 +166,8 @@ export const properties = sqliteTable(
     price: integer("price"),
     pricePerSqft: integer("price_per_sqft"),
     negotiable: integer("negotiable", { mode: "boolean" }).notNull().default(false),
+    /** Which of the two figures the website shows. The other stays for office use. */
+    priceDisplay: text("price_display", { enum: PRICE_DISPLAYS }).notNull().default("both"),
     /** Show "Call for price" on the website. The stored figure stays for office use and is never sent out. */
     callForPrice: integer("call_for_price", { mode: "boolean" }).notNull().default(false),
     documents: text("documents", { mode: "json" })
@@ -219,6 +221,8 @@ export const sites = sqliteTable(
     pricePerSqft: integer("price_per_sqft"),
     /** Show "Call for price" for this site. The stored figure stays for office use. */
     callForPrice: integer("call_for_price", { mode: "boolean" }).notNull().default(false),
+    /** Which of the two figures the website shows. The other stays for office use. */
+    priceDisplay: text("price_display", { enum: PRICE_DISPLAYS }).notNull().default("both"),
     lat: real("lat"),
     lng: real("lng"),
     descriptionEn: text("description_en").notNull().default(""),

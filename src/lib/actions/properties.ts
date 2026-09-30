@@ -37,6 +37,7 @@ function readPropertyForm(formData: FormData) {
     pricePerSqft: formData.get("pricePerSqft") ?? "",
     negotiable: formData.get("negotiable") === "on",
     callForPrice: formData.get("callForPrice") === "on",
+    priceDisplay: formData.get("priceDisplay") ?? "both",
     featured: formData.get("featured") === "on",
     published: formData.get("published") === "on",
     sortOrder: formData.get("sortOrder") ?? "0",

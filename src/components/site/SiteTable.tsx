@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { Facing, ListingStatus } from "@/lib/db/enums";
 import type { Locale } from "@/lib/i18n/config";
-import { cn, formatINRShort, formatNumber } from "@/lib/utils";
+import { priceLine } from "@/lib/pricing";
+import { cn, formatNumber } from "@/lib/utils";
 import { ListingStatusBadge } from "./StatusBadge";
 
 export type SiteRow = {
@@ -19,6 +20,7 @@ export type SiteRow = {
   corner: boolean;
   status: ListingStatus;
   price: number | null;
+  pricePerSqft: number | null;
   href: string;
 };
 
@@ -40,6 +42,7 @@ type Labels = {
   showAll: string;
   corner: string;
   onRequest: string;
+  perSqft: string;
   sqft: string;
   ft: string;
   statusLabels: Record<ListingStatus, string>;
@@ -152,7 +155,7 @@ export function SiteTable({ sites, locale, labels }: { sites: SiteRow[]; locale:
                     <td>
                       <ListingStatusBadge status={s.status} label={labels.statusLabels[s.status]} />
                     </td>
-                    <td className="num text-right font-semibold text-navy-900">{s.price ? formatINRShort(s.price, locale) : <span className="font-normal text-ink-500">{labels.onRequest}</span>}</td>
+                    <td className="num text-right font-semibold text-navy-900">{priceLine(s.price, s.pricePerSqft, labels.perSqft, locale) || <span className="font-normal text-ink-500">{labels.onRequest}</span>}</td>
                     <td className="!pr-5 text-right">
                       <Link
                         href={s.href}
@@ -195,7 +198,7 @@ export function SiteTable({ sites, locale, labels }: { sites: SiteRow[]; locale:
                       {s.facing && s.roadWidthFt ? " · " : ""}
                       {s.roadWidthFt ? `${s.roadWidthFt} ${labels.ft} ${labels.road.toLowerCase()}` : ""}
                     </span>
-                    <span className="num font-semibold text-navy-900">{s.price ? formatINRShort(s.price, locale) : labels.onRequest}</span>
+                    <span className="num font-semibold text-navy-900">{priceLine(s.price, s.pricePerSqft, labels.perSqft, locale) || labels.onRequest}</span>
                   </span>
                 </Link>
               </li>

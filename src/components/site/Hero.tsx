@@ -8,7 +8,8 @@ import { formatCoords } from "@/lib/geo";
 import { localePath, pick, type Dictionary, type Locale } from "@/lib/i18n";
 import { planFromCorners, planFromDimensions, type PlanShape } from "@/lib/plan";
 import { formatRef } from "@/lib/refs";
-import { formatArea, formatINRShort } from "@/lib/utils";
+import { priceLine } from "@/lib/pricing";
+import { formatArea } from "@/lib/utils";
 import { HeroMotion } from "./HeroMotion";
 import { listingHref } from "./ListingCard";
 import { PlotPlan } from "./PlotPlan";
@@ -53,7 +54,7 @@ function Sheet({ locale, dict, settings, specimen }: Omit<Props, "types">) {
   const facts = [
     { label: dict.property.area, value: area },
     { label: dict.facing.label, value: listing?.facing ? dict.facing[listing.facing] : sample ? dict.facing.E : "" },
-    { label: dict.common.price, value: listing?.price ? formatINRShort(listing.price, locale) : listing ? dict.common.onRequest : "" },
+    { label: dict.common.price, value: listing ? priceLine(listing.price, listing.pricePerSqft, dict.common.perSqft, locale) || dict.common.onRequest : "" },
   ].filter((f) => f.value);
 
   const body = (

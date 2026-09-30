@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AREA_UNITS, FACINGS, LANDMARK_CATEGORIES, LEAD_KINDS, LEAD_PURPOSES, LISTING_STATUSES, PROJECT_STATUSES, PROPERTY_TYPES } from "@/lib/db/enums";
+import { AREA_UNITS, FACINGS, LANDMARK_CATEGORIES, LEAD_KINDS, LEAD_PURPOSES, LISTING_STATUSES, PRICE_DISPLAYS, PROJECT_STATUSES, PROPERTY_TYPES } from "@/lib/db/enums";
 import { isIndianMobile } from "@/lib/utils";
 
 const optionalNumber = z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().finite().nullable());
@@ -88,6 +88,7 @@ export const propertySchema = z.object({
   pricePerSqft: optionalPositiveInt,
   negotiable: z.boolean().default(false),
   callForPrice: z.boolean().default(false),
+  priceDisplay: z.enum(PRICE_DISPLAYS).default("both"),
   featured: z.boolean().default(false),
   published: z.boolean().default(false),
   sortOrder,
@@ -109,6 +110,7 @@ export const siteSchema = z.object({
   price: optionalPositiveInt,
   pricePerSqft: optionalPositiveInt,
   callForPrice: z.boolean().default(false),
+  priceDisplay: z.enum(PRICE_DISPLAYS).default("both"),
   descriptionEn: z.string().trim().max(4000).default(""),
   descriptionKn: z.string().trim().max(5000).default(""),
 });

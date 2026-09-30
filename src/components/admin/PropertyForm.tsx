@@ -100,10 +100,21 @@ export function PropertyForm({ property, action, submitLabel = "Save property", 
       </Group>
 
       <Group title="Price">
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Input label="Total price (₹)" name="price" type="number" min="0" step="1000" inputMode="numeric" defaultValue={property?.price ?? ""} hint="Leave blank to show “Call for price”." />
+        <div className="grid gap-5 sm:grid-cols-3">
+          <Input label="Total price (₹)" name="price" type="number" min="0" step="1000" inputMode="numeric" defaultValue={property?.price ?? ""} />
           <Input label="Rate per sq ft (₹)" name="pricePerSqft" type="number" min="0" inputMode="numeric" defaultValue={property?.pricePerSqft ?? ""} />
+          <Select
+            label="Show on the website"
+            name="priceDisplay"
+            defaultValue={property?.priceDisplay ?? "both"}
+            options={[
+              { value: "both", label: "Total price and rate per sq ft" },
+              { value: "total", label: "Total price only" },
+              { value: "rate", label: "Rate per sq ft only" },
+            ]}
+          />
         </div>
+        <p className="help">The figure you choose not to show stays here for your own reference. With nothing to show, the website says “Call for price”.</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <Checkbox label="Slightly negotiable" name="negotiable" defaultChecked={property?.negotiable ?? false} hint="Shown beside the price on the website, in these words." />
           <Checkbox label="Show “Call for price” on the website" name="callForPrice" defaultChecked={property?.callForPrice ?? false} hint="The figures above stay here for your own reference and are not shown to visitors." />

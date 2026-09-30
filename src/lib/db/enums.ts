@@ -13,6 +13,10 @@ export type ListingStatus = (typeof LISTING_STATUSES)[number];
 export const PROPERTY_TYPES = ["residential_site", "commercial_site", "house", "farm_land", "commercial_building"] as const;
 export type PropertyType = (typeof PROPERTY_TYPES)[number];
 
+/** What a listing shows of its price on the website: the total and the rate, the total alone, or the rate alone. */
+export const PRICE_DISPLAYS = ["both", "total", "rate"] as const;
+export type PriceDisplay = (typeof PRICE_DISPLAYS)[number];
+
 export const AREA_UNITS = ["sqft", "guntas", "acres", "cents"] as const;
 export type AreaUnit = (typeof AREA_UNITS)[number];
 

@@ -177,10 +177,16 @@ export default async function PropertyPage({ params }: PageProps<"/[locale]/prop
 
             <div className="card relative overflow-hidden p-5 shadow-card sm:p-6">
               {d.status === "sold" ? <SoldStamp label={dict.status.listing.sold} className="sold-stamp-corner" /> : null}
-              <p className="label-mono">{dict.property.totalPrice}</p>
+              {/* The listing chooses what to show: the total, the rate per square foot, or both. */}
+              <p className="label-mono">{d.price || !d.pricePerSqft ? dict.property.totalPrice : dict.property.ratePerSqft}</p>
               <p className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 {d.price ? (
                   <span className="font-display text-[2.3rem] font-semibold leading-none text-navy-900 [font-stretch:110%]">{formatINRShort(d.price, locale)}</span>
+                ) : d.pricePerSqft ? (
+                  <>
+                    <span className="font-display text-[2.3rem] font-semibold leading-none text-navy-900 [font-stretch:110%]">₹{formatNumber(d.pricePerSqft)}</span>
+                    <span className="num text-[13.5px] text-ink-500">{dict.common.perSqft}</span>
+                  </>
                 ) : settings.phonePrimary ? (
                   <a href={telHref(settings.phonePrimary)} className="font-display text-[1.9rem] font-semibold leading-tight text-navy-900 underline decoration-gold-500 decoration-2 underline-offset-[6px] [font-stretch:110%] hover:decoration-navy-900">
                     {dict.common.onRequest}
@@ -190,14 +196,14 @@ export default async function PropertyPage({ params }: PageProps<"/[locale]/prop
                 )}
                 {d.price ? <span className="num text-[13.5px] text-ink-500">{formatINR(d.price)}</span> : null}
               </p>
-              {d.pricePerSqft || d.negotiable ? (
+              {(d.price && d.pricePerSqft) || d.negotiable ? (
                 <p className="mt-2 text-[13.5px] text-ink-600">
-                  {d.pricePerSqft ? (
+                  {d.price && d.pricePerSqft ? (
                     <span className="num">
                       ₹{formatNumber(d.pricePerSqft)} {dict.common.perSqft}
                     </span>
                   ) : null}
-                  {d.pricePerSqft && d.negotiable ? " · " : ""}
+                  {d.price && d.pricePerSqft && d.negotiable ? " · " : ""}
                   {d.negotiable ? dict.common.negotiable : ""}
                 </p>
               ) : null}

@@ -8,6 +8,7 @@ import { formatFeet } from "@/lib/geo";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { formatRef, formatSiteNo } from "@/lib/refs";
 import { measureDistance, summariseSurvey } from "@/lib/survey";
+import { priceLine, publicPrice } from "@/lib/pricing";
 import { formatArea, formatINRShort, formatPhoneDisplay } from "@/lib/utils";
 
 export const metadata = { title: "Video reel" };
@@ -54,7 +55,8 @@ export default async function ReelPage({ params }: PageProps<"/admin/surveys/[id
       refText = formatRef(p.prefix, p.propertyNo);
       title = p.titleEn;
       location = p.locationEn;
-      price = p.callForPrice ? en.common.onRequest : p.price ? formatINRShort(p.price) : "";
+      const shown = publicPrice(p, p.callForPrice);
+      price = p.callForPrice ? en.common.onRequest : priceLine(shown.price, shown.pricePerSqft, en.common.perSqft);
       facing = p.facing ? en.facing[p.facing] : "";
       if (p.areaSqft) area = formatArea(p.areaSqft, p.areaUnit);
       if (p.dimension) dimension = `${p.dimension} ft`;
@@ -68,7 +70,8 @@ export default async function ReelPage({ params }: PageProps<"/admin/surveys/[id
       refText = formatRef(project.prefix, project.propertyNo, s.siteNo);
       title = `Site ${formatSiteNo(s.siteNo)}, ${project.nameEn}`;
       location = project.locationEn;
-      price = s.callForPrice || project.callForPrice ? en.common.onRequest : s.price ? formatINRShort(s.price) : "";
+      const shown = publicPrice(s, s.callForPrice || project.callForPrice);
+      price = s.callForPrice || project.callForPrice ? en.common.onRequest : priceLine(shown.price, shown.pricePerSqft, en.common.perSqft);
       facing = s.facing ? en.facing[s.facing] : "";
       if (s.areaSqft) area = formatArea(s.areaSqft, "sqft");
       if (s.dimension) dimension = `${s.dimension} ft`;

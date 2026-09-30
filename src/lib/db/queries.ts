@@ -33,6 +33,7 @@ import {
   type Testimonial,
 } from "./schema";
 import { cleanPrefix } from "@/lib/refs";
+import { publicPrice } from "@/lib/pricing";
 import { geometryOf, surveyCentre } from "@/lib/survey";
 
 export type ProjectWithCounts = Project & { siteCount: number; availableCount: number };
@@ -336,9 +337,8 @@ function propertyToListing(p: Property): Listing {
     facing: p.facing,
     corner: p.corner,
     status: p.status,
-    // A listing marked "call for price" goes out without its figures.
-    price: p.callForPrice ? null : p.price,
-    pricePerSqft: p.callForPrice ? null : p.pricePerSqft,
+    // Only the figures the listing has chosen to show go out; "call for price" sends none.
+    ...publicPrice(p, p.callForPrice),
     image: p.images[0] ?? "",
     lat: p.lat,
     lng: p.lng,
@@ -368,8 +368,7 @@ function siteToListing(s: Site, project: Project): Listing {
     facing: s.facing,
     corner: s.corner,
     status: s.status,
-    price: s.callForPrice || project.callForPrice ? null : s.price,
-    pricePerSqft: s.callForPrice || project.callForPrice ? null : s.pricePerSqft,
+    ...publicPrice(s, s.callForPrice || project.callForPrice),
     image: s.images[0] ?? "",
     lat: s.lat ?? project.lat,
     lng: s.lng ?? project.lng,
@@ -407,7 +406,7 @@ export async function searchListings(filters: ListingFilters = {}): Promise<List
           filters.minPrice != null ? gte(properties.price, filters.minPrice) : undefined,
           filters.maxPrice != null ? lte(properties.price, filters.maxPrice) : undefined,
           // A budget filter must not reveal a price that is being kept private.
-          filters.minPrice != null || filters.maxPrice != null ? eq(properties.callForPrice, false) : undefined,
+          filters.minPrice != null || filters.maxPrice != null ? and(eq(properties.callForPrice, false), ne(properties.priceDisplay, "rate")) : undefined,
           filters.minArea != null ? gte(properties.areaSqft, filters.minArea) : undefined,
           filters.maxArea != null ? lte(properties.areaSqft, filters.maxArea) : undefined,
           pattern
@@ -432,7 +431,7 @@ export async function searchListings(filters: ListingFilters = {}): Promise<List
           filters.facing ? eq(sites.facing, filters.facing) : undefined,
           filters.minPrice != null ? gte(sites.price, filters.minPrice) : undefined,
           filters.maxPrice != null ? lte(sites.price, filters.maxPrice) : undefined,
-          filters.minPrice != null || filters.maxPrice != null ? and(eq(sites.callForPrice, false), eq(projects.callForPrice, false)) : undefined,
+          filters.minPrice != null || filters.maxPrice != null ? and(eq(sites.callForPrice, false), eq(projects.callForPrice, false), ne(sites.priceDisplay, "rate")) : undefined,
           filters.minArea != null ? gte(sites.areaSqft, filters.minArea) : undefined,
           filters.maxArea != null ? lte(sites.areaSqft, filters.maxArea) : undefined,
           pattern

@@ -19,6 +19,7 @@ import { VideoGallery } from "@/components/site/VideoGallery";
 import { getProjectBySlug, getSettings, getSurveyFor, listLandmarks, listSites, listSiteSurveys } from "@/lib/db/queries";
 import { centroid, formatCoords, googleDirectionsLink, googleMapsLink, isValidLatLng } from "@/lib/geo";
 import { fill, getDictionary, isLocale, localePath, pick, pickItem } from "@/lib/i18n";
+import { publicPrice } from "@/lib/pricing";
 import { formatPropertyNo, formatSiteRef, refSlug } from "@/lib/refs";
 import { cn, formatINRShort, formatNumber } from "@/lib/utils";
 
@@ -77,7 +78,7 @@ export default async function ProjectPage({ params }: PageProps<"/[locale]/proje
     roadWidthFt: s.roadWidthFt,
     corner: s.corner,
     status: s.status,
-    price: project.callForPrice || s.callForPrice ? null : s.price,
+    ...publicPrice(s, project.callForPrice || s.callForPrice),
     href: siteHref(s.siteNo),
   }));
 
@@ -333,6 +334,7 @@ export default async function ProjectPage({ params }: PageProps<"/[locale]/proje
                   showAll: dict.projects.showAllSites,
                   corner: dict.common.corner,
                   onRequest: dict.common.onRequest,
+                  perSqft: dict.common.perSqft,
                   sqft: dict.common.sqft,
                   ft: dict.common.ft,
                   statusLabels: dict.status.listing,

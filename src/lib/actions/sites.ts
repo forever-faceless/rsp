@@ -27,6 +27,7 @@ function readSiteForm(formData: FormData) {
     price: formData.get("price") ?? "",
     pricePerSqft: formData.get("pricePerSqft") ?? "",
     callForPrice: formData.get("callForPrice") === "on",
+    priceDisplay: formData.get("priceDisplay") ?? "both",
     descriptionEn: formData.get("descriptionEn") ?? "",
     descriptionKn: formData.get("descriptionKn") ?? "",
   });
