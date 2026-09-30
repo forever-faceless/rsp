@@ -76,7 +76,7 @@ export function AdminShell({ user, newLeads, children }: { user: string; newLead
 
   const brand = (
     <Link href="/admin" className="flex flex-col items-start gap-1.5" aria-label="RSP Ventures register">
-      <Image src="/brand/logo-wide-sm.webp" alt="" width={782} height={160} unoptimized className="h-9 w-auto" />
+      <Image src="/brand/logo-wide-sm.webp" alt="" width={687} height={160} unoptimized className="h-9 w-auto" />
       <span className="font-mono text-[9.5px] uppercase leading-none tracking-[0.24em] text-navy-300">Register</span>
     </Link>
   );

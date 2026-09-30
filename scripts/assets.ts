@@ -85,27 +85,125 @@ async function onBackground(mark: Buffer, size: number, background: string, scal
     .toFile(file);
 }
 
-/** Transparent margin that bounds() leaves around a cut-out piece, in artwork pixels. */
-const CUT_PAD = 6;
 /**
  * Where the letters "RSP" stand inside the cut-out mark, as fractions of its height: the tops
  * of the letters and their feet (the bar beneath them is below this). Measured on the artwork.
  */
 const LETTERS = { top: 0.395, feet: 0.862 };
 
+/** How tall "VENTURES" stands beside the mark, as a share of the height of the letters "RSP". */
+const WORD_SIZE = 0.84;
 /**
- * The horizontal logo for headers: the mark on the left with "VENTURES" beside it. The word is
- * scaled to the height of the letters in the mark and set on their line, so the two read as
- * one line of lettering, "RSP VENTURES", with the roof above and the bar below.
+ * How much of the word's navy outline is pared away, in artwork pixels. The word is enlarged
+ * to sit beside the mark while the mark is reduced, which would leave the word with an
+ * outline about twice as heavy as the mark's.
+ */
+const OUTLINE_TRIM = 2.6;
+
+/**
+ * The artwork has pale highlights along the edges of its gold faces, which the cut-out
+ * leaves as slivers of see-through inside the lettering. Holes up to twice this many artwork
+ * pixels across are taken to be such highlights, not background.
+ */
+const HIGHLIGHT_REACH = 2.5;
+
+/** Gives every pixel the strongest (or the faintest) value found within `radius` of it. */
+function spread(src: Uint8Array, width: number, height: number, radius: number, strongest: boolean): Uint8Array {
+  const disk: number[] = [];
+  for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) if (dx * dx + dy * dy <= radius * radius) disk.push(dx, dy);
+  const out = new Uint8Array(src.length);
+  const settled = strongest ? 255 : 0;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let value = src[y * width + x];
+      for (let k = 0; k < disk.length && value !== settled; k += 2) {
+        const nx = x + disk[k];
+        const ny = y + disk[k + 1];
+        const a = nx < 0 || ny < 0 || nx >= width || ny >= height ? 0 : src[ny * width + nx];
+        if (strongest ? a > value : a < value) value = a;
+      }
+      out[y * width + x] = value;
+    }
+  }
+  return out;
+}
+
+const trimmed = new Map<string, Buffer>();
+
+/**
+ * Pares the outer edge of a cut-out piece back by `by` artwork pixels, which thins its
+ * outline without touching the lettering inside. Only the true background eats into the
+ * piece: the highlight slivers inside the lettering are closed over first, so the outline
+ * beside them is left whole. Returned tightly cropped, four times the artwork's size, so the
+ * new edge stays smooth when it is scaled to its final size.
+ */
+async function trimOutline(piece: Buffer, by: number): Promise<Buffer> {
+  const key = `${piece.length}:${by}`;
+  const done = trimmed.get(key);
+  if (done) return done;
+  const UP = 4;
+  const meta = await sharp(piece).metadata();
+  const { data, info } = await sharp(piece)
+    .resize({ width: (meta.width ?? 0) * UP, kernel: "lanczos3" })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const { width, height } = info;
+  const alpha = new Uint8Array(width * height);
+  for (let i = 0; i < alpha.length; i++) alpha[i] = data[i * 4 + 3];
+  /** Softens a one-channel picture, which smooths the line a later cut-off draws through it. */
+  const soften = async (plane: Uint8Array, sigma: number) => {
+    const { data: soft, info: softInfo } = await sharp(Buffer.from(plane), { raw: { width, height, channels: 1 } }).blur(sigma).raw().toBuffer({ resolveWithObject: true });
+    const out = new Uint8Array(width * height);
+    for (let i = 0; i < out.length; i++) out[i] = soft[i * softInfo.channels];
+    return out;
+  };
+
+  // The shape is worked on as plain in or out, along a smoothed line: the artwork's outline
+  // fades at its outer edge, and cutting through that fade directly leaves the edge ragged.
+  const shape = await soften(alpha, UP * 1.1);
+  for (let i = 0; i < shape.length; i++) shape[i] = shape[i] > 120 ? 255 : 0;
+
+  // Swell the piece to close the highlights, then shrink it by the same amount and by the trim.
+  const reach = Math.round(HIGHLIGHT_REACH * UP);
+  const pared = await soften(spread(spread(shape, width, height, reach, true), width, height, reach + Math.max(1, Math.round(by * UP)), false), UP * 0.4);
+
+  let top = height;
+  let bottom = -1;
+  let left = width;
+  let right = -1;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x;
+      const value = Math.min(alpha[i], pared[i]);
+      data[i * 4 + 3] = value;
+      if (value > 140) {
+        if (y < top) top = y;
+        if (y > bottom) bottom = y;
+        if (x < left) left = x;
+        if (x > right) right = x;
+      }
+    }
+  }
+  const out = await sharp(data, { raw: { width, height, channels: 4 } })
+    .extract({ left, top, width: right - left + 1, height: bottom - top + 1 })
+    .png()
+    .toBuffer();
+  trimmed.set(key, out);
+  return out;
+}
+
+/**
+ * The horizontal logo for headers: the mark on the left with "VENTURES" beside it. The word
+ * stands on the line the letters "RSP" stand on, a little shorter than they are and with its
+ * outline pared to the weight of the mark's, so the mark leads and the word follows.
  */
 async function wideLogo(mark: Buffer, word: Buffer, height: number): Promise<Buffer> {
   const m = await sharp(mark).resize({ height }).png().toBuffer();
   const mm = await sharp(m).metadata();
-  const native = await sharp(word).metadata();
-  const inkHeight = (native.height ?? 0) - 2 * CUT_PAD;
-  const scale = ((LETTERS.feet - LETTERS.top) * height) / inkHeight;
-  const w = await sharp(word)
-    .resize({ height: Math.round((native.height ?? 0) * scale) })
+  const wordHeight = Math.round((LETTERS.feet - LETTERS.top) * height * WORD_SIZE);
+  const w = await sharp(await trimOutline(word, OUTLINE_TRIM))
+    .resize({ height: wordHeight })
     .png()
     .toBuffer();
   const wm = await sharp(w).metadata();
@@ -114,7 +212,7 @@ async function wideLogo(mark: Buffer, word: Buffer, height: number): Promise<Buf
   return sharp({ create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
     .composite([
       { input: m, left: 0, top: 0 },
-      { input: w, left: (mm.width ?? 0) + gap, top: Math.round(LETTERS.top * height - CUT_PAD * scale) },
+      { input: w, left: (mm.width ?? 0) + gap, top: Math.round(LETTERS.feet * height) - wordHeight },
     ])
     .png()
     .toBuffer();
