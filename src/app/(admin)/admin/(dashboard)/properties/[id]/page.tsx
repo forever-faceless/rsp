@@ -9,7 +9,9 @@ import { VideoManager } from "@/components/admin/VideoManager";
 import { deleteLandmark, saveLandmark } from "@/lib/actions/landmarks";
 import { addVideoLink, attachUploadedVideo, removeVideo } from "@/lib/actions/media";
 import { deleteProperty, removePropertyImage, setPropertyCover, updateProperty, uploadPropertyImages } from "@/lib/actions/properties";
-import { getPropertyById, getSurveyFor, listLandmarks } from "@/lib/db/queries";
+import { getPropertyById, getSurveyFor, listBrokers, listLandmarks } from "@/lib/db/queries";
+import { siteUrl } from "@/lib/site-url";
+import { ShareLinks } from "@/components/admin/ShareLinks";
 import { isValidLatLng } from "@/lib/geo";
 import { formatPropertyNo, refSlug } from "@/lib/refs";
 
@@ -22,7 +24,7 @@ export default async function EditPropertyPage({ params, searchParams }: PagePro
   if (!Number.isInteger(id)) notFound();
   const property = await getPropertyById(id);
   if (!property) notFound();
-  const [landmarks, survey] = await Promise.all([listLandmarks({ propertyId: id }), getSurveyFor({ propertyId: id })]);
+  const [landmarks, survey, brokers] = await Promise.all([listLandmarks({ propertyId: id }), getSurveyFor({ propertyId: id }), listBrokers()]);
   const prefix = property.prefix;
   const origin = isValidLatLng(property.lat, property.lng) ? { lat: property.lat!, lng: property.lng! } : null;
   const owner = { kind: "property" as const, id };
@@ -46,6 +48,7 @@ export default async function EditPropertyPage({ params, searchParams }: PagePro
       <SectionNav
         items={[
           ["#details", "Details"],
+          ["#share", "Share"],
           ["#survey", "Survey"],
           ["#photos", "Photos"],
           ["#videos", "Videos"],
@@ -55,7 +58,11 @@ export default async function EditPropertyPage({ params, searchParams }: PagePro
 
       <div className="space-y-6">
         <Section id="details" title="Property details">
-          <PropertyForm property={property} action={updateProperty.bind(null, id)} />
+          <PropertyForm property={property} action={updateProperty.bind(null, id)} brokers={brokers.map(({ id: bid, name, phone, firm }) => ({ id: bid, name, phone, firm }))} />
+        </Section>
+
+        <Section id="share" title="Share" description="Links to send in a DM, a WhatsApp chat or under a post. The enquiry link opens straight on the quick enquiry for this property, with a short preview beside it.">
+          <ShareLinks base={siteUrl()} slug={refSlug(prefix, property.propertyNo)} published={property.published} label={formatPropertyNo(prefix, property.propertyNo)} />
         </Section>
 
         <Section id="survey" title="Site survey" description="The pin that is the property's location, and the boundary as marked on the ground. They put the property on the map and draw its site plan.">

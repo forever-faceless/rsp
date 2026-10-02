@@ -7,7 +7,6 @@ import type { MapLine, MapPin as Pin, MapPlot } from "@/components/map/MapView";
 import { PageCurtain } from "@/components/motion/PageCurtain";
 import { Reveal } from "@/components/motion/Reveal";
 import { Breadcrumbs } from "@/components/site/Breadcrumbs";
-import { EnquiryForm } from "@/components/site/EnquiryForm";
 import { EnquiryPanel } from "@/components/site/EnquiryPanel";
 import { Gallery } from "@/components/site/Gallery";
 import { computeDistances, LandmarkList, MeasuredList } from "@/components/site/LandmarkList";
@@ -79,6 +78,8 @@ export default async function PropertyPage({ params }: PageProps<"/[locale]/prop
   const location = pick(d, "location", locale);
   const description = pick(d, "description", locale);
   const pageHref = localePath(locale, `/properties/${d.slug}`);
+  // Every "enquire" on this page opens the quick enquiry card for this listing.
+  const interestHref = `${pageHref}/interest`;
   const projectHref = d.project ? localePath(locale, `/projects/${d.project.slug}`) : null;
   const subjectLabel = `${d.ref}, ${name}`;
   const wa = settings.whatsapp || settings.phonePrimary;
@@ -230,10 +231,10 @@ export default async function PropertyPage({ params }: PageProps<"/[locale]/prop
                 </p>
               ) : null}
               <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                <a href="#enquire" className="btn-primary">
+                <Link href={interestHref} className="btn-primary" data-enquire>
                   <MessageSquareText className="h-4 w-4" aria-hidden="true" />
                   {dict.common.enquireNow}
-                </a>
+                </Link>
                 <WhatsAppButton phone={wa} label={dict.common.whatsapp} text={waText} variant="outline" />
               </div>
               <CallButton phone={settings.phonePrimary} variant="ghost" className="mt-2 w-full !justify-start" />
@@ -266,7 +267,7 @@ export default async function PropertyPage({ params }: PageProps<"/[locale]/prop
             Only when something has been written about the property. With nothing to say, the block
             is left out and the enquiry form at the foot of the page does the asking. */}
         {hasAbout ? (
-          <section className="grid gap-12 lg:grid-cols-[1.3fr_0.7fr] lg:gap-16">
+          <section className="max-w-4xl">
             <div className="space-y-12">
               {paragraphs.length ? (
                 <Reveal>
@@ -313,21 +314,12 @@ export default async function PropertyPage({ params }: PageProps<"/[locale]/prop
 
             </div>
 
-            <aside className="lg:sticky lg:top-28 lg:self-start">
-              <div className="card p-5 sm:p-6">
-                <h2 className="text-[1.25rem] leading-snug">{fill(dict.property.enquireTitle, { ref: d.ref })}</h2>
-                <p className="mt-2 text-[14px] leading-relaxed text-ink-600">{dict.property.enquireText}</p>
-                <div className="mt-5">
-                  <EnquiryForm locale={locale} t={dict.enquiry} whatsappLabel={dict.common.whatsapp} projects={[]} subject={subject} phone={settings.phonePrimary} whatsapp={wa} source={pageHref} compact />
-                </div>
-              </div>
-              {projectHref ? (
-                <Link href={projectHref} className="btn-ghost mt-3 !justify-start text-[14px]">
-                  <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-                  {dict.site.backToProject}
-                </Link>
-              ) : null}
-            </aside>
+            {projectHref ? (
+              <Link href={projectHref} className="btn-ghost mt-8 !justify-start text-[14px]">
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                {dict.site.backToProject}
+              </Link>
+            ) : null}
           </section>
         ) : null}
 
@@ -413,7 +405,7 @@ export default async function PropertyPage({ params }: PageProps<"/[locale]/prop
 
         {/* ---------- Enquiry ---------- */}
         <Reveal>
-          <EnquiryPanel locale={locale} dict={dict} settings={settings} subject={subject} source={pageHref} title={fill(dict.property.enquireTitle, { ref: d.ref })} text={dict.property.enquireText} id="enquire" />
+          <EnquiryPanel locale={locale} dict={dict} settings={settings} subject={subject} source={pageHref} title={fill(dict.property.enquireTitle, { ref: d.ref })} text={dict.property.enquireText} id="enquire" href={interestHref} />
         </Reveal>
 
         {/* ---------- Related ---------- */}

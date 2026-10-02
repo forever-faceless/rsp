@@ -13,7 +13,9 @@ import {
   surveys,
   teamMembers,
   testimonials,
+  brokers,
   type AreaUnit,
+  type Broker,
   type Facing,
   type Landmark,
   type Lead,
@@ -226,6 +228,23 @@ export async function slugExists(slug: string, exceptId?: number): Promise<boole
 export async function listAllProperties(): Promise<Property[]> {
   const db = await getDb();
   return db.query.properties.findMany({ orderBy: [asc(properties.prefix), desc(properties.propertyNo)] });
+}
+
+// ---------------------------------------------------------------- brokers (office only)
+
+export async function listBrokers(): Promise<(Broker & { listings: number })[]> {
+  const db = await getDb();
+  const [rows, counts] = await Promise.all([
+    db.query.brokers.findMany({ orderBy: [asc(brokers.name)] }),
+    db.select({ brokerId: properties.brokerId, n: sql<number>`count(*)` }).from(properties).where(isNotNull(properties.brokerId)).groupBy(properties.brokerId),
+  ]);
+  const byId = new Map(counts.map((c) => [c.brokerId, Number(c.n)]));
+  return rows.map((b) => ({ ...b, listings: byId.get(b.id) ?? 0 }));
+}
+
+export async function getBroker(id: number): Promise<Broker | null> {
+  const db = await getDb();
+  return (await db.query.brokers.findFirst({ where: eq(brokers.id, id) })) ?? null;
 }
 
 export async function getPropertyById(id: number): Promise<Property | null> {

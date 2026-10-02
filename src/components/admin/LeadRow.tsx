@@ -40,6 +40,11 @@ export function LeadRow({ lead, compact = false, company }: { lead: LeadWithRefs
             {lead.budget ? ` · ${lead.budget}` : ""}
             {lead.timeline ? ` · ${lead.timeline}` : ""}
           </p>
+          {lead.source.includes("/interest") ? (
+            <p className="mt-1 text-[12.5px] text-ink-500">
+              Through the quick enquiry link{/[?&]from=([a-z0-9_-]+)/i.test(lead.source) ? `, shared on ${lead.source.match(/[?&]from=([a-z0-9_-]+)/i)![1]}` : ""}
+            </p>
+          ) : null}
           {lead.message ? <p className="mt-2 whitespace-pre-line rounded-[3px] bg-paper-100 px-3 py-2 text-[14px] text-ink-700">{lead.message}</p> : null}
           <div className="mt-3 flex flex-wrap gap-2">
             <a href={telHref(lead.phone)} className="btn-primary btn-sm">

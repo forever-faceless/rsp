@@ -3,13 +3,13 @@ import Link from "next/link";
 import { PropertyForm } from "@/components/admin/PropertyForm";
 import { PageHeader, Section } from "@/components/admin/ui";
 import { createProperty } from "@/lib/actions/properties";
-import { getSettings, listRegions } from "@/lib/db/queries";
+import { getSettings, listBrokers, listRegions } from "@/lib/db/queries";
 import { regionOptions } from "@/lib/regions";
 
 export const metadata = { title: "New property" };
 
 export default async function NewPropertyPage() {
-  const [settings, regions] = await Promise.all([getSettings(), listRegions()]);
+  const [settings, regions, brokers] = await Promise.all([getSettings(), listRegions(), listBrokers()]);
   return (
     <>
       <PageHeader title="New property" description="Save the basics first. Photos, video, landmarks and the survey are added on the next screen." back={{ href: "/admin/properties", label: "Properties" }} />
@@ -28,7 +28,7 @@ export default async function NewPropertyPage() {
       </div>
 
       <Section title="Property details">
-        <PropertyForm action={createProperty} submitLabel="Create property" regions={regionOptions(regions)} defaultPrefix={settings.propertyPrefix} />
+        <PropertyForm action={createProperty} submitLabel="Create property" regions={regionOptions(regions)} defaultPrefix={settings.propertyPrefix} brokers={brokers.map(({ id, name, phone, firm }) => ({ id, name, phone, firm }))} />
       </Section>
     </>
   );

@@ -4,10 +4,11 @@ import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db/client";
-import { getPropertyById } from "@/lib/db/queries";
-import { landmarks, LISTING_STATUSES, properties, type ListingStatus } from "@/lib/db/schema";
+import { getBroker, getPropertyById } from "@/lib/db/queries";
+import { brokers, landmarks, LISTING_STATUSES, properties, type ListingStatus } from "@/lib/db/schema";
 import { formFiles, parseApprovalLines, parseBilingualLines, type ActionState, zodFieldErrors } from "@/lib/forms";
 import { deleteStored, saveImage, UploadError } from "@/lib/storage";
+import { normalisePhone } from "@/lib/utils";
 import { propertySchema } from "@/lib/validation";
 import { deriveDimension, resolveNewPropertyNo, revalidateAll } from "./shared";
 
@@ -44,7 +45,30 @@ function readPropertyForm(formData: FormData) {
     ownerName: formData.get("ownerName") ?? "",
     ownerPhone: formData.get("ownerPhone") ?? "",
     privateNotes: formData.get("privateNotes") ?? "",
+    source: formData.get("source") ?? "seller",
+    dealTerms: formData.get("dealTerms") ?? "",
   });
+}
+
+/**
+ * The broker a listing came through: one picked from the list, or a new one typed in, which is
+ * added to the list. A new broker whose number is already on the list is taken to be that broker.
+ */
+async function resolveBroker(formData: FormData, source: "seller" | "broker"): Promise<{ brokerId: number | null } | { error: string }> {
+  if (source !== "broker") return { brokerId: null };
+  const picked = Number(formData.get("brokerId"));
+  if (Number.isInteger(picked) && picked > 0 && (await getBroker(picked))) return { brokerId: picked };
+  const name = String(formData.get("newBrokerName") ?? "").trim().slice(0, 120);
+  const phone = normalisePhone(String(formData.get("newBrokerPhone") ?? "")).slice(0, 20);
+  const firm = String(formData.get("newBrokerFirm") ?? "").trim().slice(0, 120);
+  if (name.length < 2) return { error: "Choose the broker from the list, or add a new one with a name." };
+  const db = await getDb();
+  if (phone) {
+    const same = (await db.query.brokers.findMany()).find((b) => normalisePhone(b.phone) === phone);
+    if (same) return { brokerId: same.id };
+  }
+  const [row] = await db.insert(brokers).values({ name, phone, firm }).returning({ id: brokers.id });
+  return { brokerId: row.id };
 }
 
 function lists(formData: FormData) {
@@ -60,13 +84,15 @@ export async function createProperty(_prev: ActionState, formData: FormData): Pr
   if (!parsed.success) {
     return { error: "Please check the highlighted fields.", fieldErrors: zodFieldErrors(parsed.error.issues) };
   }
+  const broker = await resolveBroker(formData, parsed.data.source);
+  if ("error" in broker) return { error: broker.error, fieldErrors: { brokerId: broker.error } };
   const number = await resolveNewPropertyNo(formData);
   if ("error" in number) return { error: number.error, fieldErrors: { [number.field]: number.error } };
 
   const db = await getDb();
   const [row] = await db
     .insert(properties)
-    .values({ ...parsed.data, facing: parsed.data.facing || null, prefix: number.prefix, propertyNo: number.propertyNo, ...lists(formData) })
+    .values({ ...parsed.data, ...broker, facing: parsed.data.facing || null, prefix: number.prefix, propertyNo: number.propertyNo, ...lists(formData) })
     .returning({ id: properties.id });
   revalidateAll();
   redirect(`/admin/properties/${row.id}?created=1`);
@@ -80,10 +106,12 @@ export async function updateProperty(id: number, _prev: ActionState, formData: F
   if (!parsed.success) {
     return { error: "Please check the highlighted fields.", fieldErrors: zodFieldErrors(parsed.error.issues) };
   }
+  const broker = await resolveBroker(formData, parsed.data.source);
+  if ("error" in broker) return { error: broker.error, fieldErrors: { brokerId: broker.error } };
   const db = await getDb();
   await db
     .update(properties)
-    .set({ ...parsed.data, facing: parsed.data.facing || null, ...lists(formData), updatedAt: new Date() })
+    .set({ ...parsed.data, ...broker, facing: parsed.data.facing || null, ...lists(formData), updatedAt: new Date() })
     .where(eq(properties.id, id));
   revalidateAll();
   return { success: "Property saved." };

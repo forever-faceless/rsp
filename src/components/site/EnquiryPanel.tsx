@@ -1,3 +1,5 @@
+import { MessageSquareText } from "lucide-react";
+import Link from "next/link";
 import { listPublishedProjects } from "@/lib/db/queries";
 import type { Settings } from "@/lib/db/schema";
 import { fill, pick, type Dictionary, type Locale } from "@/lib/i18n";
@@ -15,24 +17,33 @@ type Props = {
   text?: string;
   id?: string;
   className?: string;
+  /** When given, the panel offers a button to this enquiry page instead of carrying the form itself. */
+  href?: string;
 };
 
 /** The full-width enquiry block that closes a project or property page. */
-export async function EnquiryPanel({ locale, dict, settings, subject, source, title, text, id = "enquire", className }: Props) {
-  const projects = subject.ref ? [] : (await listPublishedProjects()).map((p) => ({ id: p.id, name: pick(p, "name", locale) }));
+export async function EnquiryPanel({ locale, dict, settings, subject, source, title, text, id = "enquire", className, href }: Props) {
+  const projects = subject.ref || href ? [] : (await listPublishedProjects()).map((p) => ({ id: p.id, name: pick(p, "name", locale) }));
   const wa = settings.whatsapp || settings.phonePrimary;
   return (
     <section id={id} className={cn("surface-navy bg-grid-dark scroll-mt-24 border border-navy-900", className)}>
-      <div className="grid gap-10 p-6 sm:p-10 lg:grid-cols-[0.8fr_1.2fr] lg:gap-14 lg:p-14">
+      <div className={cn("grid gap-10 p-6 sm:p-10 lg:gap-14 lg:p-14", !href && "lg:grid-cols-[0.8fr_1.2fr]")}>
         <div className="on-dark">
           <p className="eyebrow">{dict.nav.enquire}</p>
           <h2 className="display-2 mt-4 !text-paper-50">{title ?? dict.enquiry.title}</h2>
           <p className="mt-4 text-[1.02rem] leading-relaxed text-navy-200">{text ?? dict.enquiry.subtitle}</p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-start">
-            <CallButton phone={settings.phonePrimary} variant="gold" />
+          <div className={cn("mt-8 flex flex-col gap-3 sm:flex-row", !href && "lg:flex-col lg:items-start")}>
+            {href ? (
+              <Link href={href} className="btn-gold" data-enquire>
+                <MessageSquareText className="h-4 w-4" aria-hidden="true" />
+                {dict.common.enquireNow}
+              </Link>
+            ) : null}
+            <CallButton phone={settings.phonePrimary} variant={href ? "outline-light" : "gold"} />
             <WhatsAppButton phone={wa} label={dict.common.whatsapp} text={fill(dict.enquiry.whatsappPrefill, { subject: subject.label })} variant="outline-light" />
           </div>
         </div>
+        {href ? null : (
         <EnquiryForm
           locale={locale}
           t={dict.enquiry}
@@ -44,6 +55,7 @@ export async function EnquiryPanel({ locale, dict, settings, subject, source, ti
           source={source}
           tone="dark"
         />
+        )}
       </div>
     </section>
   );

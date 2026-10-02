@@ -4,7 +4,7 @@ import Link from "next/link";
 import { PropertyQuickControls } from "@/components/admin/PropertyQuickControls";
 import { EmptyState, PageHeader } from "@/components/admin/ui";
 import { ListingStatusBadge } from "@/components/site/StatusBadge";
-import { listAllProperties, listPropertyCorners } from "@/lib/db/queries";
+import { listAllProperties, listBrokers, listPropertyCorners } from "@/lib/db/queries";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { formatPropertyNo, refSlug } from "@/lib/refs";
 import { formatArea, formatINRShort } from "@/lib/utils";
@@ -13,7 +13,8 @@ export const metadata = { title: "Properties" };
 
 export default async function PropertiesAdminPage() {
   const properties = await listAllProperties();
-  const surveyed = await listPropertyCorners(properties.map((p) => p.id));
+  const [surveyed, brokers] = await Promise.all([listPropertyCorners(properties.map((p) => p.id)), listBrokers()]);
+  const brokerName = new Map(brokers.map((b) => [b.id, b.name]));
 
   return (
     <>
@@ -40,6 +41,9 @@ export default async function PropertiesAdminPage() {
                   <ListingStatusBadge status={p.status} label={en.status.listing[p.status]} />
                   {p.published ? null : <span className="badge bg-paper-200 text-ink-700">Draft</span>}
                   {p.featured ? <span className="badge bg-gold-100 text-gold-800">Featured</span> : null}
+                  <span className={p.source === "broker" ? "badge bg-navy-900 text-gold-200" : "badge bg-paper-200 text-ink-700"}>
+                    {p.source === "broker" ? `Broker${p.brokerId && brokerName.get(p.brokerId) ? `: ${brokerName.get(p.brokerId)}` : ""}` : "Seller"}
+                  </span>
                   {surveyed.has(p.id) ? (
                     <span className="inline-flex items-center gap-1 text-xs font-semibold text-success-700">
                       <MapPinned className="h-3.5 w-3.5" aria-hidden="true" /> Surveyed

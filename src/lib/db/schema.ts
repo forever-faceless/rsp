@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import type { Approval, BilingualItem, SurveyCorner, SurveyMeasure, SurveyPoint, VideoItem } from "./enums";
-import { AREA_UNITS, FACINGS, LANDMARK_CATEGORIES, LEAD_KINDS, LEAD_PURPOSES, LEAD_STATUSES, LISTING_STATUSES, PRICE_DISPLAYS, PROJECT_STATUSES, PROPERTY_TYPES } from "./enums";
+import { AREA_UNITS, FACINGS, LANDMARK_CATEGORIES, LEAD_KINDS, LEAD_PURPOSES, LEAD_STATUSES, LISTING_SOURCES, LISTING_STATUSES, PRICE_DISPLAYS, PROJECT_STATUSES, PROPERTY_TYPES } from "./enums";
 
 export * from "./enums";
 
@@ -133,6 +133,19 @@ export const projects = sqliteTable(
   (t) => [uniqueIndex("projects_ref").on(t.prefix, t.propertyNo)],
 );
 
+/**
+ * Brokers who bring properties to the office, kept so the same broker is found again rather
+ * than typed in twice. Office only: nothing in this table is ever sent to the public website.
+ */
+export const brokers = sqliteTable("brokers", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  phone: text("phone").notNull().default(""),
+  firm: text("firm").notNull().default(""),
+  notes: text("notes").notNull().default(""),
+  ...timestamps,
+});
+
 /** A listing that stands on its own: a single site, house, parcel of land or building. */
 export const properties = sqliteTable(
   "properties",
@@ -193,6 +206,11 @@ export const properties = sqliteTable(
     ownerName: text("owner_name").notNull().default(""),
     ownerPhone: text("owner_phone").notNull().default(""),
     privateNotes: text("private_notes").notNull().default(""),
+    /** Who brought the property: the owner, or a broker from the brokers list. */
+    source: text("source", { enum: LISTING_SOURCES }).notNull().default("seller"),
+    brokerId: integer("broker_id").references(() => brokers.id, { onDelete: "set null" }),
+    /** The agreement with the owner, or the commission agreed with the broker. */
+    dealTerms: text("deal_terms").notNull().default(""),
     /** Set by the seed script, so placeholder rows can be removed without touching real ones. */
     isDemo: integer("is_demo", { mode: "boolean" }).notNull().default(false),
     ...timestamps,
@@ -355,6 +373,7 @@ export type Region = typeof regions.$inferSelect;
 export type NewRegion = typeof regions.$inferInsert;
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
+export type Broker = typeof brokers.$inferSelect;
 export type Property = typeof properties.$inferSelect;
 export type NewProperty = typeof properties.$inferInsert;
 export type Landmark = typeof landmarks.$inferSelect;

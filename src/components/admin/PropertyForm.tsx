@@ -8,6 +8,7 @@ import { approvalsToLines, bilingualToLines, type ActionState } from "@/lib/form
 import { en } from "@/lib/i18n/dictionaries/en";
 import { formatPropertyNo } from "@/lib/refs";
 import { regionLabel, type RegionOption } from "@/lib/regions";
+import { BrokerPicker, type BrokerOption } from "./BrokerPicker";
 import { MeasureInput } from "./MeasureInput";
 import { SizeFields } from "./SizeFields";
 import { Checkbox, FormStatus, Input, Select, SubmitButton, Textarea } from "./ui";
@@ -15,7 +16,7 @@ import { ActionForm } from "@/components/ActionForm";
 
 type Action = (prev: ActionState, formData: FormData) => Promise<ActionState>;
 
-type Props = { property?: Property | null; action: Action; submitLabel?: string; regions?: RegionOption[]; defaultPrefix?: string };
+type Props = { property?: Property | null; action: Action; submitLabel?: string; regions?: RegionOption[]; defaultPrefix?: string; brokers?: BrokerOption[] };
 
 const unitLabels = { sqft: "Square feet", guntas: "Guntas", acres: "Acres", cents: "Cents" } as const;
 
@@ -31,7 +32,7 @@ function Group({ title, note, children }: { title: string; note?: string; childr
   );
 }
 
-export function PropertyForm({ property, action, submitLabel = "Save property", regions = [], defaultPrefix }: Props) {
+export function PropertyForm({ property, action, submitLabel = "Save property", regions = [], defaultPrefix, brokers = [] }: Props) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(action, undefined);
   const [type, setType] = useState<PropertyType>(property?.type ?? "residential_site");
   const [prefix, setPrefix] = useState(property?.prefix ?? defaultPrefix ?? regions[0]?.code ?? "HSN");
@@ -145,7 +146,8 @@ export function PropertyForm({ property, action, submitLabel = "Save property", 
       </Group>
 
       <Group title="Office only" note="Never shown on the website.">
-        <div className="grid gap-5 md:grid-cols-2">
+        <BrokerPicker source={property?.source ?? "seller"} brokerId={property?.brokerId ?? null} dealTerms={property?.dealTerms ?? ""} brokers={brokers} error={e.brokerId} />
+        <div className="mt-5 grid gap-5 md:grid-cols-2">
           <Input label="Owner's name" name="ownerName" defaultValue={property?.ownerName} autoComplete="off" />
           <Input label="Owner's phone" name="ownerPhone" type="tel" inputMode="tel" defaultValue={property?.ownerPhone} autoComplete="off" className="num" />
           <Textarea label="Private notes" name="privateNotes" rows={3} defaultValue={property?.privateNotes} wrapperClassName="md:col-span-2" placeholder="Asking price flexibility, key holder, commission agreed" />

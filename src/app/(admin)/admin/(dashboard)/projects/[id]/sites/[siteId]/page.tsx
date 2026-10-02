@@ -8,6 +8,8 @@ import { VideoManager } from "@/components/admin/VideoManager";
 import { addVideoLink, attachUploadedVideo, removeVideo } from "@/lib/actions/media";
 import { deleteSite, removeSiteImage, setSiteCover, updateSite, uploadSiteImages } from "@/lib/actions/sites";
 import { getProjectById, getSiteById, getSurveyFor } from "@/lib/db/queries";
+import { siteUrl } from "@/lib/site-url";
+import { ShareLinks } from "@/components/admin/ShareLinks";
 import { formatSiteNo, formatSiteRef, refSlug } from "@/lib/refs";
 
 export const metadata = { title: "Edit site" };
@@ -44,6 +46,7 @@ export default async function EditSitePage({ params, searchParams }: PageProps<"
       <SectionNav
         items={[
           ["#details", "Details"],
+          ["#share", "Share"],
           ["#survey", "Survey"],
           ["#photos", "Photos"],
           ["#videos", "Videos"],
@@ -53,6 +56,10 @@ export default async function EditSitePage({ params, searchParams }: PageProps<"
       <div className="space-y-6">
         <Section id="details" title="Site details">
           <SiteForm site={site} action={updateSite.bind(null, siteId)} prefix={prefix} projectNo={project.propertyNo} />
+        </Section>
+
+        <Section id="share" title="Share" description="Links to send in a DM, a WhatsApp chat or under a post. The enquiry link opens straight on the quick enquiry for this site, with a short preview beside it.">
+          <ShareLinks base={siteUrl()} slug={refSlug(prefix, project.propertyNo, site.siteNo)} published={project.published} label={ref} />
         </Section>
 
         <Section id="survey" title="Site survey" description="The pin that is this site's location, and its boundary. They plot the site on the layout map and draw its plan on the website.">

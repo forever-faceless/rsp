@@ -46,6 +46,10 @@ export type LeadStatus = (typeof LEAD_STATUSES)[number];
 export const LEAD_KINDS = ["buy", "sell"] as const;
 export type LeadKind = (typeof LEAD_KINDS)[number];
 
+/** Who brought a listing to the office: the owner directly, or a broker. Office only. */
+export const LISTING_SOURCES = ["seller", "broker"] as const;
+export type ListingSource = (typeof LISTING_SOURCES)[number];
+
 export const LEAD_PURPOSES = ["self_use", "investment", "other"] as const;
 export type LeadPurpose = (typeof LEAD_PURPOSES)[number];
 

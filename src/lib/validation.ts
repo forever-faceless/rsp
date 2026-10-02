@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AREA_UNITS, FACINGS, LANDMARK_CATEGORIES, LEAD_KINDS, LEAD_PURPOSES, LISTING_STATUSES, PRICE_DISPLAYS, PROJECT_STATUSES, PROPERTY_TYPES } from "@/lib/db/enums";
+import { AREA_UNITS, FACINGS, LANDMARK_CATEGORIES, LEAD_KINDS, LEAD_PURPOSES, LISTING_SOURCES, LISTING_STATUSES, PRICE_DISPLAYS, PROJECT_STATUSES, PROPERTY_TYPES } from "@/lib/db/enums";
 import { isIndianMobile } from "@/lib/utils";
 
 const optionalNumber = z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().finite().nullable());
@@ -95,6 +95,15 @@ export const propertySchema = z.object({
   ownerName: z.string().trim().max(120).default(""),
   ownerPhone: z.string().trim().max(20).default(""),
   privateNotes: z.string().trim().max(4000).default(""),
+  source: z.enum(LISTING_SOURCES).default("seller"),
+  dealTerms: z.string().trim().max(2000).default(""),
+});
+
+export const brokerSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  phone: z.string().trim().max(20).default(""),
+  firm: z.string().trim().max(120).default(""),
+  notes: z.string().trim().max(2000).default(""),
 });
 
 export const siteSchema = z.object({
