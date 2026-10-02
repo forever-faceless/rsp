@@ -1,14 +1,13 @@
 "use client";
 
 import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, Phone } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { submitEnquiry, type EnquiryState } from "@/lib/actions/enquiry";
 import { LEAD_PURPOSES } from "@/lib/db/enums";
 import { fill, type Dictionary } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n/config";
 import { cn, formatPhoneDisplay, telHref, whatsappHref } from "@/lib/utils";
+import { CloseEnquiryLink } from "./EnquireOverlay";
 import type { EnquirySubject } from "./EnquiryForm";
 import { WhatsAppIcon } from "./PhoneLinks";
 import { ActionForm } from "@/components/ActionForm";
@@ -90,9 +89,9 @@ export function InterestForm({ locale, t, e, whatsappLabel, subject, phone, what
             </a>
           ) : null}
         </div>
-        <Link href={detailsHref} className="link-arrow mt-6 inline-flex">
+        <CloseEnquiryLink href={detailsHref} className="link-arrow mt-6 inline-flex">
           {t.viewDetails} <ArrowRight className="h-4 w-4" aria-hidden="true" />
-        </Link>
+        </CloseEnquiryLink>
       </div>
     );
   }
@@ -202,23 +201,4 @@ export function InterestForm({ locale, t, e, whatsappLabel, subject, phone, what
       </div>
     </ActionForm>
   );
-}
-
-/** Keeps the page behind the overlay still, and lets Escape close the overlay. */
-export function OverlayKeeper({ closeHref }: { closeHref: string }) {
-  const router = useRouter();
-  useEffect(() => {
-    const root = document.documentElement;
-    const before = root.style.overflow;
-    root.style.overflow = "hidden";
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === "Escape") router.push(closeHref);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      root.style.overflow = before;
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [closeHref, router]);
-  return null;
 }

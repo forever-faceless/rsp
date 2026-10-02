@@ -1,9 +1,9 @@
 import { MessageSquareText } from "lucide-react";
-import Link from "next/link";
 import { listPublishedProjects } from "@/lib/db/queries";
 import type { Settings } from "@/lib/db/schema";
 import { fill, pick, type Dictionary, type Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import { EnquireLink } from "./EnquireOverlay";
 import { EnquiryForm, type EnquirySubject } from "./EnquiryForm";
 import { CallButton, WhatsAppButton } from "./PhoneLinks";
 
@@ -34,10 +34,10 @@ export async function EnquiryPanel({ locale, dict, settings, subject, source, ti
           <p className="mt-4 text-[1.02rem] leading-relaxed text-navy-200">{text ?? dict.enquiry.subtitle}</p>
           <div className={cn("mt-8 flex flex-col gap-3 sm:flex-row", !href && "lg:flex-col lg:items-start")}>
             {href ? (
-              <Link href={href} className="btn-gold" data-enquire>
+              <EnquireLink href={href} className="btn-gold">
                 <MessageSquareText className="h-4 w-4" aria-hidden="true" />
                 {dict.common.enquireNow}
-              </Link>
+              </EnquireLink>
             ) : null}
             <CallButton phone={settings.phonePrimary} variant={href ? "outline-light" : "gold"} />
             <WhatsAppButton phone={wa} label={dict.common.whatsapp} text={fill(dict.enquiry.whatsappPrefill, { subject: subject.label })} variant="outline-light" />

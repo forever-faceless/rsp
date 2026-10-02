@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { localePath } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n/config";
 import { telHref, whatsappHref } from "@/lib/utils";
+import { EnquireLink } from "./EnquireOverlay";
 import { WhatsAppIcon } from "./PhoneLinks";
 
 type Props = {
@@ -45,10 +46,17 @@ export function StickyBar({ locale, phone, whatsapp, whatsappText, labels }: Pro
       ) : (
         <span className="border-x border-navy-900/10" />
       )}
-      <Link href={listing ? `${listing}/interest` : localePath(locale, "/enquire")} className="flex min-h-[60px] flex-col items-center justify-center gap-1 bg-navy-900 text-[12px] font-semibold text-gold-200 active:bg-navy-800">
-        <MessageSquareText className="h-[18px] w-[18px]" aria-hidden="true" />
-        {labels.enquire}
-      </Link>
+      {listing ? (
+        <EnquireLink href={`${listing}/interest`} className="flex min-h-[60px] flex-col items-center justify-center gap-1 bg-navy-900 text-[12px] font-semibold text-gold-200 active:bg-navy-800">
+          <MessageSquareText className="h-[18px] w-[18px]" aria-hidden="true" />
+          {labels.enquire}
+        </EnquireLink>
+      ) : (
+        <Link href={localePath(locale, "/enquire")} className="flex min-h-[60px] flex-col items-center justify-center gap-1 bg-navy-900 text-[12px] font-semibold text-gold-200 active:bg-navy-800">
+          <MessageSquareText className="h-[18px] w-[18px]" aria-hidden="true" />
+          {labels.enquire}
+        </Link>
+      )}
     </div>
   );
 }
