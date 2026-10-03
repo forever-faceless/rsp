@@ -14,7 +14,7 @@ The whole backend is JavaScript; there is no separate server to run.
 | Property numbers | Every listing has a number. `HSN-0001` is an independent property or a whole project; `HSN-0034(012)` is site 12 inside project `HSN-0034`. The letters name the district (HSN Hassan, MYS Mysuru, BNG Bengaluru) and each district counts on its own, so `MYS-0001` is the first Mysuru listing. A number is never reused. Districts are managed in settings. |
 | Public site | Home, Properties (one searchable list of independent properties and project sites, with a map view), Projects, property and site pages, Sell with us, About, Contact, Enquire. Every page exists at `/en/...` and `/kn/...`. |
 | Find by number | The search box in the header accepts `HSN-0034(012)`, `hsn-0034-012`, `MYS 7`, `34/12` and similar, and opens the listing. A number typed without letters is looked up in the main district. |
-| Quick enquiry | `/[locale]/properties/<number>/interest` opens a card over the page: three questions answered by tapping (what it is for, how soon, budget), then name and number, with the property beside them (above them on a phone). Every Enquire button on a listing leads there, and each property and site page in the admin has the link ready to copy, marked with where it is shared (`?from=instagram`). |
+| Quick enquiry | `/[locale]/properties/<number>/interest` opens a card over the page, with an English and ಕನ್ನಡ switch at its top: name and number first, then a tick to confirm, then three questions answered by tapping (what it is for, how soon, budget), with the property beside them (above them on a phone). The number is kept as soon as it is typed, even if send is never pressed; such leads are marked Not sent. Every Enquire button on a listing leads there, and each property and site page in the admin has the link ready to copy, marked with where it is shared (`?from=instagram`). |
 | Brokers | Each property records whether it came from the owner or a broker. A broker is picked from the office list by name, firm or number, or added on the spot; a number already on the list reuses that broker. Brokers, commission and agreement terms are office only and never reach a public page. |
 | Link previews | A listing's link shared in a chat app shows a picture drawn on request: property number, title, location, dimension, area, facing, price and status, beside the first photo or the site plan. The text under it repeats those details. |
 | Price shown | Each property and site chooses what the website shows of its price: the total and the rate per sq ft, the total alone, or the rate alone. The figure held back stays in the office record and is never sent to a page. "Call for price" hides both. A negotiable price is worded "Slightly negotiable". |
@@ -28,7 +28,7 @@ The whole backend is JavaScript; there is no separate server to run.
 | Field survey | `/admin/surveys`. GPS pin, boundary by walking the corners or tapping the satellite image, a rectangle tool for regular sites, extra distance lines, labelled points, photos, taped lengths per side. Work is kept on the phone when the signal drops and sent when it returns. |
 | Google Earth | Every survey downloads as KML (and GeoJSON). The file opens in Google Earth with the outline and every side length. |
 | Video reel | `/admin/surveys/<id>/reel` makes a 9:16 or 1:1 video of the plot: the map closes in from above, the boundary draws itself, the particulars slide in. Made in the browser, downloaded as MP4, and optionally attached to the listing. |
-| Leads | Enquiry form on every listing, plus a seller form. Indian mobile validation, honeypot, rate limit. The admin gets one-tap Call and WhatsApp, status tracking, notes and a spreadsheet export. |
+| Leads | The quick enquiry on every listing, plus the enquiry and seller forms. Indian mobile validation, honeypot, rate limit. Leads from a DM, a call or a walk-in are added by hand (Admin, Leads, Add a lead) with how they came in. The admin gets one-tap Call and WhatsApp, status tracking, notes and a spreadsheet export. |
 | Media | Photos are shrunk in the browser before upload. Videos upload with a progress bar, or can be linked from YouTube and Instagram. |
 
 ## Run it locally
@@ -143,8 +143,8 @@ the three `NEXT_PUBLIC_SATELLITE_*` variables; no code changes are needed.
   coloured by availability.
 - **Bilingual text:** every field has an English and a ಕನ್ನಡ version. Kannada falls back to English
   when left empty. Lists such as highlights are one item per line in the form `English | ಕನ್ನಡ`.
-- **Enquiries:** Admin, Enquiries. Call or WhatsApp with one tap, set the status, add notes,
-  download a spreadsheet.
+- **Leads:** Admin, Leads. Call or WhatsApp with one tap, set the status, add notes, add a lead
+  that came in by DM, call or walk-in, download a spreadsheet.
 
 ## Accuracy, stated plainly
 

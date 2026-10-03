@@ -1,12 +1,12 @@
-import { Download } from "lucide-react";
+import { Download, Plus } from "lucide-react";
 import Link from "next/link";
 import { LeadRow } from "@/components/admin/LeadRow";
-import { EmptyState, PageHeader } from "@/components/admin/ui";
+import { EmptyState, Notice, PageHeader } from "@/components/admin/ui";
 import { countLeadsByStatus, getSettings, listLeads } from "@/lib/db/queries";
 import { LEAD_KINDS, LEAD_STATUSES, type LeadKind, type LeadStatus } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 
-export const metadata = { title: "Enquiries" };
+export const metadata = { title: "Leads" };
 
 const statusLabel: Record<LeadStatus, string> = { new: "New", contacted: "Contacted", qualified: "Qualified", closed: "Closed" };
 const kindLabel: Record<LeadKind, string> = { buy: "Buyers", sell: "Sellers" };
@@ -17,6 +17,7 @@ export default async function LeadsPage({ searchParams }: PageProps<"/admin/lead
   const rawKind = typeof query.kind === "string" ? query.kind : "";
   const status = (LEAD_STATUSES as readonly string[]).includes(rawStatus) ? (rawStatus as LeadStatus) : undefined;
   const kind = (LEAD_KINDS as readonly string[]).includes(rawKind) ? (rawKind as LeadKind) : undefined;
+  const added = typeof query.added === "string";
   const [settings, leads, counts] = await Promise.all([getSettings(), listLeads({ status, kind }), countLeadsByStatus()]);
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
 
@@ -34,14 +35,25 @@ export default async function LeadsPage({ searchParams }: PageProps<"/admin/lead
   return (
     <>
       <PageHeader
-        title="Enquiries"
-        description="People who asked about a property, and owners who want to sell through you."
+        title="Leads"
+        description="Everyone who asked about a property or wants to sell through you: from the website, and the ones you add yourself."
         actions={
-          <a href={`/admin/leads/export${status || kind ? `?${new URLSearchParams({ ...(status ? { status } : {}), ...(kind ? { kind } : {}) })}` : ""}`} className="btn-outline btn-sm">
-            <Download className="h-4 w-4" aria-hidden="true" /> Download as a spreadsheet
-          </a>
+          <>
+            <Link href="/admin/leads/new" className="btn-primary btn-sm">
+              <Plus className="h-4 w-4" aria-hidden="true" /> Add a lead
+            </Link>
+            <a href={`/admin/leads/export${status || kind ? `?${new URLSearchParams({ ...(status ? { status } : {}), ...(kind ? { kind } : {}) })}` : ""}`} className="btn-outline btn-sm">
+              <Download className="h-4 w-4" aria-hidden="true" /> Download as a spreadsheet
+            </a>
+          </>
         }
       />
+
+      {added ? (
+        <div className="mb-5">
+          <Notice tone="success">Lead added. It is at the top of the list.</Notice>
+        </div>
+      ) : null}
 
       <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
         <Link href={href({ status: undefined })} className={chip(!status)}>
@@ -67,7 +79,7 @@ export default async function LeadsPage({ searchParams }: PageProps<"/admin/lead
           ))}
         </div>
       ) : (
-        <EmptyState title="Nothing here" text={status || kind ? "No enquiries match this filter." : "Enquiries appear here as soon as a visitor sends a form on the website."} />
+        <EmptyState title="Nothing here" text={status || kind ? "No leads match this filter." : "Leads appear here as soon as a visitor leaves a number on the website, or when you add one yourself."} />
       )}
     </>
   );

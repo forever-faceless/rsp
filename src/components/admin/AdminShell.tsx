@@ -15,7 +15,7 @@ const nav: Item[] = [
   { href: "/admin/properties", label: "Properties", short: "Properties", icon: Building2 },
   { href: "/admin/projects", label: "Projects and sites", short: "Projects", icon: FolderKanban },
   { href: "/admin/surveys", label: "Field surveys", short: "Survey", icon: MapPinned },
-  { href: "/admin/leads", label: "Enquiries", short: "Enquiries", icon: MessageSquareText },
+  { href: "/admin/leads", label: "Leads", short: "Leads", icon: MessageSquareText },
   { href: "/admin/brokers", label: "Brokers", short: "Brokers", icon: Handshake },
   { href: "/admin/testimonials", label: "Testimonials", short: "Testimonials", icon: Quote },
   { href: "/admin/team", label: "Team", short: "Team", icon: Users },

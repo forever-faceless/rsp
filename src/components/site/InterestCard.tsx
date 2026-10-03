@@ -5,7 +5,7 @@ import type { ListingDetail } from "@/lib/listing-detail";
 import { priceLine } from "@/lib/pricing";
 import { formatSiteNo } from "@/lib/refs";
 import { formatArea } from "@/lib/utils";
-import { CloseEnquiryLink } from "./EnquireOverlay";
+import { CloseEnquiryLink, EnquiryLanguage } from "./EnquireOverlay";
 import { InterestForm } from "./InterestForm";
 import { ListingMedia } from "./ListingMedia";
 import { ListingStatusBadge } from "./StatusBadge";
@@ -19,13 +19,22 @@ export function listingTags(d: ListingDetail, dict: Dictionary, locale: Locale):
   ].filter(Boolean);
 }
 
-type Props = { d: ListingDetail; dict: Dictionary; locale: Locale; settings: Settings; source: string; listingPath: string };
+type Props = {
+  d: ListingDetail;
+  dict: Dictionary;
+  locale: Locale;
+  settings: Settings;
+  source: string;
+  listingPath: string;
+  /** The card's own address in each language, for the switch at its top. */
+  languageHrefs: Record<Locale, string>;
+};
 
 /**
  * What the quick enquiry card holds: the questions and the number, and a short reminder of the
  * property, beside them on a wide screen and above them on a phone.
  */
-export function InterestCard({ d, dict, locale, settings, source, listingPath }: Props) {
+export function InterestCard({ d, dict, locale, settings, source, listingPath, languageHrefs }: Props) {
   const isSite = d.kind === "site";
   const name = pick(d, "title", locale);
   const heading = isSite ? `${dict.common.site} ${formatSiteNo(d.siteNo ?? 0)}, ${name}` : name;
@@ -35,9 +44,13 @@ export function InterestCard({ d, dict, locale, settings, source, listingPath }:
 
   return (
     <>
-      <div className="p-5 pt-6 sm:p-8 lg:p-10">
-        <div className="lg:hidden" data-interest-summary>
-          <div className="flex flex-wrap items-center gap-2 pr-12">
+      <div className="px-5 pb-6 pt-3 sm:px-8 sm:pb-8 lg:px-10 lg:pb-10">
+        {/* Level with the close button, which sits in the top corner of the card. */}
+        <div className="pr-12 lg:pr-0">
+          <EnquiryLanguage locale={locale} hrefs={languageHrefs} label={dict.interest.language} />
+        </div>
+        <div className="mt-4 lg:hidden" data-interest-summary>
+          <div className="flex flex-wrap items-center gap-2">
             <span className="ref">{d.ref}</span>
             <ListingStatusBadge status={d.status} label={dict.status.listing[d.status]} />
           </div>
@@ -58,8 +71,8 @@ export function InterestCard({ d, dict, locale, settings, source, listingPath }:
           <div className="mt-5 border-t border-navy-900/10" />
         </div>
 
-        <p className="eyebrow mt-5 lg:mt-0">{dict.interest.eyebrow}</p>
-        <h2 id="interest-title" className="display-3 mt-3 lg:pr-12">
+        <p className="eyebrow mt-5 lg:mt-6">{dict.interest.eyebrow}</p>
+        <h2 id="interest-title" className="display-3 mt-3">
           {fill(dict.interest.title, { ref: d.ref })}
         </h2>
         <div className="mt-6">
@@ -72,7 +85,6 @@ export function InterestCard({ d, dict, locale, settings, source, listingPath }:
             phone={settings.phonePrimary}
             whatsapp={settings.whatsapp || settings.phonePrimary}
             source={source}
-            detailsHref={listingPath}
           />
         </div>
       </div>

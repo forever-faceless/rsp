@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import type { Approval, BilingualItem, SurveyCorner, SurveyMeasure, SurveyPoint, VideoItem } from "./enums";
-import { AREA_UNITS, FACINGS, LANDMARK_CATEGORIES, LEAD_KINDS, LEAD_PURPOSES, LEAD_STATUSES, LISTING_SOURCES, LISTING_STATUSES, PRICE_DISPLAYS, PROJECT_STATUSES, PROPERTY_TYPES } from "./enums";
+import { AREA_UNITS, FACINGS, LANDMARK_CATEGORIES, LEAD_KINDS, LEAD_PURPOSE_ANSWERS, LEAD_STATUSES, LISTING_SOURCES, LISTING_STATUSES, PRICE_DISPLAYS, PROJECT_STATUSES, PROPERTY_TYPES } from "./enums";
 
 export * from "./enums";
 
@@ -354,7 +354,7 @@ export const leads = sqliteTable("leads", {
   propertyId: integer("property_id").references(() => properties.id, { onDelete: "set null" }),
   /** Property number as the visitor saw it, kept even if the listing is later deleted. */
   ref: text("ref").notNull().default(""),
-  purpose: text("purpose", { enum: LEAD_PURPOSES }).notNull().default("self_use"),
+  purpose: text("purpose", { enum: LEAD_PURPOSE_ANSWERS }).notNull().default("self_use"),
   budget: text("budget").notNull().default(""),
   timeline: text("timeline").notNull().default(""),
   message: text("message").notNull().default(""),
@@ -363,10 +363,17 @@ export const leads = sqliteTable("leads", {
   status: text("status", { enum: LEAD_STATUSES }).notNull().default("new"),
   notes: text("notes").notNull().default(""),
   isDemo: integer("is_demo", { mode: "boolean" }).notNull().default(false),
+  /**
+   * A random key held by the visitor's browser, so the quick enquiry card keeps adding to one
+   * enquiry: the number as it is typed, then the sent form, then the answers. Blank elsewhere.
+   */
+  draftKey: text("draft_key").notNull().default(""),
+  /** False while the visitor has typed a number on the quick enquiry card without pressing send. */
+  sent: integer("sent", { mode: "boolean" }).notNull().default(true),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
-});
+}, (t) => [uniqueIndex("leads_draft_key_unique").on(t.draftKey).where(sql`draft_key <> ''`)]);
 
 export type Settings = typeof settings.$inferSelect;
 export type Region = typeof regions.$inferSelect;

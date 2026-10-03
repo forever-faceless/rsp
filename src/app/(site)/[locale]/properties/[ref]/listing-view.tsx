@@ -58,6 +58,11 @@ export async function ListingView({ locale, rawRef, interest = false, from = "" 
   // Every "enquire" on this page opens the quick enquiry card over it, at this address.
   const interestHref = `${pageHref}/interest`;
   const enquirySource = interest ? `${interestHref}${from ? `?from=${from}` : ""}` : pageHref;
+  // The card's language switch keeps the tag of the link it was opened from.
+  const languageHrefs = {
+    en: `${localePath("en", `/properties/${d.slug}/interest`)}${from ? `?from=${from}` : ""}`,
+    kn: `${localePath("kn", `/properties/${d.slug}/interest`)}${from ? `?from=${from}` : ""}`,
+  };
   const projectHref = d.project ? localePath(locale, `/projects/${d.project.slug}`) : null;
   const subjectLabel = `${d.ref}, ${name}`;
   const wa = settings.whatsapp || settings.phonePrimary;
@@ -131,7 +136,7 @@ export async function ListingView({ locale, rawRef, interest = false, from = "" 
       {/* Someone arriving on a shared enquiry link goes straight to the card, without the opening curtain. */}
       {interest ? null : <PageCurtain mode="lift" label={d.ref} caption={dict.loader.opening} />}
       <EnquireOverlay interestPath={interestHref} listingPath={pageHref} closeLabel={dict.interest.close}>
-        <InterestCard d={d} dict={dict} locale={locale} settings={settings} source={enquirySource} listingPath={pageHref} />
+        <InterestCard d={d} dict={dict} locale={locale} settings={settings} source={enquirySource} listingPath={pageHref} languageHrefs={languageHrefs} />
       </EnquireOverlay>
 
       {/* ---------- Heading ---------- */}

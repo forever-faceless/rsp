@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AREA_UNITS, FACINGS, LANDMARK_CATEGORIES, LEAD_KINDS, LEAD_PURPOSES, LISTING_SOURCES, LISTING_STATUSES, PRICE_DISPLAYS, PROJECT_STATUSES, PROPERTY_TYPES } from "@/lib/db/enums";
+import { AREA_UNITS, FACINGS, LANDMARK_CATEGORIES, LEAD_KINDS, LEAD_PURPOSE_ANSWERS, LISTING_SOURCES, LISTING_STATUSES, PRICE_DISPLAYS, PROJECT_STATUSES, PROPERTY_TYPES } from "@/lib/db/enums";
 import { isIndianMobile } from "@/lib/utils";
 
 const optionalNumber = z.preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().finite().nullable());
@@ -26,7 +26,7 @@ export const leadSchema = z.object({
   siteId: optionalInt,
   propertyId: optionalInt,
   ref: z.string().trim().max(40).default(""),
-  purpose: z.enum(LEAD_PURPOSES).default("self_use"),
+  purpose: z.enum(LEAD_PURPOSE_ANSWERS).default(""),
   budget: z.string().trim().max(60).default(""),
   timeline: z.string().trim().max(60).default(""),
   message: z.string().trim().max(1500).default(""),
@@ -35,7 +35,30 @@ export const leadSchema = z.object({
   consent: z.literal(true, { error: "consent_required" }),
   // Honeypot: real users never fill this hidden field.
   website: z.string().max(0).default(""),
+  draftKey: z.union([z.literal(""), z.string().regex(/^[a-z0-9-]{16,64}$/i)]).default(""),
 });
+
+/**
+ * What the quick enquiry card holds so far, saved without the visitor pressing anything: the
+ * name and number as they are typed, and later the answers as they are tapped.
+ */
+export const cardProgressSchema = z.object({
+  draftKey: z.string().regex(/^[a-z0-9-]{16,64}$/i),
+  name: z.string().trim().max(80).catch(""),
+  phone: z.string().trim().max(20).catch(""),
+  consent: z.boolean().catch(false),
+  projectId: optionalInt.catch(null),
+  siteId: optionalInt.catch(null),
+  propertyId: optionalInt.catch(null),
+  ref: z.string().trim().max(40).catch(""),
+  locale: z.enum(["en", "kn"]).catch("en"),
+  source: z.string().trim().max(200).catch(""),
+  purpose: z.enum(LEAD_PURPOSE_ANSWERS).optional().catch(undefined),
+  budget: z.string().trim().max(60).optional().catch(undefined),
+  timeline: z.string().trim().max(60).optional().catch(undefined),
+  website: z.string().max(0).default(""),
+});
+export type CardProgress = z.infer<typeof cardProgressSchema>;
 
 export const projectSchema = z.object({
   nameEn: z.string().trim().min(2).max(120),

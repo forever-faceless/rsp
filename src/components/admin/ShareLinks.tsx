@@ -75,7 +75,7 @@ export function ShareLinks({ base, slug, published, label }: Props) {
         />
         <LinkRow title="Full listing link" note="The whole listing page: photos, plan, map and distances." url={`${base}/${lang}/properties/${slug}`} label={label} />
       </div>
-      <p className="text-[12.5px] text-ink-500">Enquiries that come through the quick enquiry link show where they came from on the Enquiries page.</p>
+      <p className="text-[12.5px] text-ink-500">Enquiries that come through the quick enquiry link show where they came from on the Leads page.</p>
     </div>
   );
 }

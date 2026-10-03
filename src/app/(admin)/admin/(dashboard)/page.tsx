@@ -1,4 +1,4 @@
-import { Building2, FolderKanban, MapPinned, Plus } from "lucide-react";
+import { Building2, FolderKanban, MapPinned, MessageSquareText, Plus } from "lucide-react";
 import Link from "next/link";
 import { LeadRow } from "@/components/admin/LeadRow";
 import { ConfirmButton, PageHeader, StatCard } from "@/components/admin/ui";
@@ -38,11 +38,12 @@ export default async function AdminDashboard() {
         </p>
       ) : null}
 
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         {[
           { href: "/admin/surveys/new", label: "New survey", note: "On the site", icon: MapPinned, primary: true },
           { href: "/admin/properties/new", label: "New property", note: "Single listing", icon: Building2 },
           { href: "/admin/projects/new", label: "New project", note: "A layout", icon: FolderKanban },
+          { href: "/admin/leads/new", label: "New lead", note: "From a DM or a call", icon: MessageSquareText },
         ].map((a) => (
           <Link
             key={a.href}
@@ -60,7 +61,7 @@ export default async function AdminDashboard() {
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="New enquiries" value={stats.leads.new} hint={`${stats.leads.contacted} contacted, ${stats.leads.qualified} qualified`} href="/admin/leads?status=new" />
+        <StatCard label="New leads" value={stats.leads.new} hint={`${stats.leads.contacted} contacted, ${stats.leads.qualified} qualified`} href="/admin/leads?status=new" />
         <StatCard label="Properties" value={stats.properties} hint={`${stats.availableProperties} available, ${stats.draftProperties} draft`} href="/admin/properties" />
         <StatCard label="Sites in projects" value={stats.sites} hint={`${stats.availableSites} available in ${stats.projects} projects`} href="/admin/projects" />
         <StatCard label="Surveys" value={stats.surveys} hint={stats.looseSurveys ? `${stats.looseSurveys} not attached yet` : "All attached"} href="/admin/surveys" />
@@ -68,7 +69,7 @@ export default async function AdminDashboard() {
 
       <div className="mt-10">
         <div className="mb-4 flex items-end justify-between">
-          <h2 className="text-[1.25rem]">Recent enquiries</h2>
+          <h2 className="text-[1.25rem]">Recent leads</h2>
           <Link href="/admin/leads" className="text-[13.5px] font-semibold text-navy-800 underline decoration-gold-500 decoration-2 underline-offset-4">
             View all
           </Link>
@@ -80,7 +81,7 @@ export default async function AdminDashboard() {
             ))}
           </div>
         ) : (
-          <p className="card p-8 text-center text-[14px] text-ink-500">No enquiries yet. They appear here as soon as a visitor sends the form.</p>
+          <p className="card p-8 text-center text-[14px] text-ink-500">No leads yet. They appear here as soon as a visitor leaves a number, or when you add one.</p>
         )}
       </div>
     </>

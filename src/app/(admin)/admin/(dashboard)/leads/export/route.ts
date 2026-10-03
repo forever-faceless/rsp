@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { getSession } from "@/lib/auth";
 import { listLeads } from "@/lib/db/queries";
 import { LEAD_KINDS, LEAD_STATUSES, type LeadKind, type LeadStatus } from "@/lib/db/schema";
+import { leadSourceLabel } from "@/lib/lead-sources";
 import { formatDateTime } from "@/lib/utils";
 
 /**
@@ -23,14 +24,14 @@ export async function GET(request: NextRequest) {
   const kind = (LEAD_KINDS as readonly string[]).includes(rawKind) ? (rawKind as LeadKind) : undefined;
   const leads = await listLeads({ status, kind });
 
-  const header = ["Received", "Kind", "Status", "Name", "Phone", "Email", "Property number", "About", "Purpose", "Budget", "Timeline", "Message", "Notes", "Language", "Page"];
+  const header = ["Received", "Kind", "Status", "Sent", "Name", "Phone", "Email", "Property number", "About", "Purpose", "Budget", "Timeline", "Message", "Notes", "Language", "Came through", "Page"];
   const rows = leads.map((l) =>
-    [formatDateTime(l.createdAt), l.kind === "sell" ? "Seller" : "Buyer", l.status, l.name, l.phone, l.email, l.ref, l.subject, l.purpose, l.budget, l.timeline, l.message, l.notes, l.locale, l.source].map(cell).join(","),
+    [formatDateTime(l.createdAt), l.kind === "sell" ? "Seller" : "Buyer", l.status, l.sent ? "Yes" : "No, number typed only", l.name, l.phone, l.email, l.ref, l.subject, l.purpose, l.budget, l.timeline, l.message, l.notes, l.locale, leadSourceLabel(l.source) || "Website form", l.source.startsWith("office:") ? "" : l.source].map(cell).join(","),
   );
   // The byte order mark makes Excel read the file as UTF-8, which the rupee sign and Kannada need.
   const csv = `﻿${header.map(cell).join(",")}\r\n${rows.join("\r\n")}\r\n`;
   const stamp = new Date().toISOString().slice(0, 10);
   return new Response(csv, {
-    headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="rsp-enquiries-${stamp}.csv"`, "Cache-Control": "no-store" },
+    headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="rsp-leads-${stamp}.csv"`, "Cache-Control": "no-store" },
   });
 }

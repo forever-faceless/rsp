@@ -1,16 +1,14 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, Phone } from "lucide-react";
-import { useActionState, useState } from "react";
+import { Check, CheckCircle2, Loader2, Phone } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { submitEnquiry, type EnquiryState } from "@/lib/actions/enquiry";
 import { LEAD_PURPOSES } from "@/lib/db/enums";
 import { fill, type Dictionary } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n/config";
-import { cn, formatPhoneDisplay, telHref, whatsappHref } from "@/lib/utils";
-import { CloseEnquiryLink } from "./EnquireOverlay";
+import { cn, formatPhoneDisplay, isIndianMobile, normalisePhone, telHref, whatsappHref } from "@/lib/utils";
 import type { EnquirySubject } from "./EnquiryForm";
 import { WhatsAppIcon } from "./PhoneLinks";
-import { ActionForm } from "@/components/ActionForm";
 
 type Props = {
   locale: Locale;
@@ -21,19 +19,54 @@ type Props = {
   phone: string;
   whatsapp: string;
   source: string;
-  detailsHref: string;
 };
 
-const initial: EnquiryState = { status: "idle" };
+/** Where the visitor is on the card: their number, then the questions, then done. */
+type Stage = "details" | "answers" | "done";
+
+/** Everything on the card, kept in the tab so a change of language or a reopened card carries on. */
+type Card = {
+  key: string;
+  source: string;
+  stage: Stage;
+  name: string;
+  mobile: string;
+  consent: boolean;
+  purpose: string;
+  timeline: string;
+  budget: string;
+  at: number;
+};
+
+const PROGRESS_URL = "/api/enquiry/progress";
+/** A card left longer than this starts afresh. */
+const KEEP_MS = 12 * 60 * 60 * 1000;
+
+/** A random key that ties every save from this card to one enquiry. */
+function newKey(): string {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}-${Math.random().toString(36).slice(2, 12)}`;
+  }
+}
+
+/** Sends what the card holds. On the way out of the page a beacon is used, since it outlives the page. */
+function sendProgress(body: string, leaving: boolean): Promise<void> {
+  if (leaving && typeof navigator.sendBeacon === "function" && navigator.sendBeacon(PROGRESS_URL, new Blob([body], { type: "text/plain" }))) {
+    return Promise.resolve();
+  }
+  return fetch(PROGRESS_URL, { method: "POST", body, keepalive: true, headers: { "Content-Type": "text/plain" } }).then(
+    () => undefined,
+    () => undefined,
+  );
+}
 
 /** One question answered by tapping, as a row of choices. Each choice is an ordinary radio button. */
-function Choices({ name, legend, note, options, value, onChange }: { name: string; legend: string; note?: string; options: { value: string; label: string }[]; value: string; onChange: (v: string) => void }) {
+function Choices({ name, legend, options, value, onChange }: { name: string; legend: string; options: { value: string; label: string }[]; value: string; onChange: (v: string) => void }) {
   return (
     <fieldset>
-      <legend className="label">
-        {legend}
-        {note ? <span className="ml-1.5 font-normal text-ink-400">({note})</span> : null}
-      </legend>
+      <legend className="label">{legend}</legend>
       <div className="mt-2 flex flex-wrap gap-2">
         {options.map((o) => {
           const on = value === o.value;
@@ -56,42 +89,168 @@ function Choices({ name, legend, note, options, value, onChange }: { name: strin
 }
 
 /**
- * The quick enquiry for one listing, in two short steps: three questions answered by tapping,
- * then a name and a number. The answers come first because they cost nothing to give; by the
- * time the number is asked for, the visitor has already said what they want.
+ * The quick enquiry for one listing. The name and number come first, since they are what the
+ * office needs; the number is kept as soon as it is typed, even if send is never pressed. Once
+ * sent, a tick confirms it and a few questions follow, each answer kept as it is tapped.
  */
-export function InterestForm({ locale, t, e, whatsappLabel, subject, phone, whatsapp, source, detailsHref }: Props) {
-  const [state, action, pending] = useActionState(submitEnquiry, initial);
-  const [step, setStep] = useState<1 | 2>(1);
-  const [purpose, setPurpose] = useState("");
-  const [timeline, setTimeline] = useState("");
-  const [budget, setBudget] = useState("");
-  const [name, setName] = useState("");
-  const [mobile, setMobile] = useState("");
-  const [consent, setConsent] = useState(true);
+export function InterestForm({ locale, t, e, whatsappLabel, subject, phone, whatsapp, source }: Props) {
+  const storeKey = `rsp-enquiry:${subject.ref}`;
+  const [card, setCard] = useState<Card>({ key: "", source, stage: "details", name: "", mobile: "", consent: true, purpose: "", timeline: "", budget: "", at: 0 });
+  const [loaded, setLoaded] = useState(false);
+  const [state, setState] = useState<EnquiryState>({ status: "idle" });
+  const [pending, start] = useTransition();
   const [nudge, setNudge] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const honeypot = useRef<HTMLInputElement>(null);
+  const update = (patch: Partial<Card>) => setCard((c) => ({ ...c, ...patch }));
 
-  if (state.status === "success") {
+  // Carries on from where this tab left the card: after a change of language, or when it is opened again.
+  useEffect(() => {
+    let saved: Partial<Card> | null = null;
+    try {
+      saved = JSON.parse(sessionStorage.getItem(storeKey) ?? "null");
+    } catch {}
+    const fresh = saved && typeof saved.key === "string" && saved.key && typeof saved.at === "number" && Date.now() - saved.at < KEEP_MS;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the tab's copy can only be read after hydration
+    setCard((c) => (fresh ? { ...c, ...saved } : { ...c, key: newKey(), at: Date.now() }));
+    setLoaded(true);
+  }, [storeKey]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    try {
+      sessionStorage.setItem(storeKey, JSON.stringify(card));
+    } catch {}
+  }, [card, loaded, storeKey]);
+
+  // What the office does not have yet. Before sending, that is the name and a valid number
+  // (only while the consent box is ticked); after, the answers to the questions.
+  const before = card.stage === "details";
+  const unsaved =
+    !loaded || !card.key
+      ? null
+      : before
+        ? card.consent && isIndianMobile(card.mobile)
+          ? { sig: `d|${card.name.trim()}|${normalisePhone(card.mobile)}`, answers: false }
+          : null
+        : card.purpose || card.timeline || card.budget
+          ? { sig: `a|${card.purpose}|${card.timeline}|${card.budget}`, answers: true }
+          : null;
+  const body = unsaved
+    ? JSON.stringify({
+        draftKey: card.key,
+        name: card.name.trim(),
+        phone: card.mobile,
+        consent: card.consent,
+        ref: subject.ref,
+        projectId: subject.projectId ?? "",
+        siteId: subject.siteId ?? "",
+        propertyId: subject.propertyId ?? "",
+        locale,
+        source: card.source,
+        ...(unsaved.answers ? { purpose: card.purpose, timeline: card.timeline, budget: card.budget } : {}),
+      })
+    : "";
+
+  const latest = useRef<{ sig: string; body: string } | null>(null);
+  const savedSig = useRef("");
+  const flush = useCallback((leaving: boolean): Promise<void> => {
+    const next = latest.current;
+    // A filled honeypot is a bot: nothing it types is kept.
+    if (!next || next.sig === savedSig.current || honeypot.current?.value) return Promise.resolve();
+    savedSig.current = next.sig;
+    return sendProgress(next.body, leaving);
+  }, []);
+
+  // Saved a moment after the typing or tapping stops.
+  useEffect(() => {
+    latest.current = unsaved ? { sig: unsaved.sig, body } : null;
+    if (!unsaved || unsaved.sig === savedSig.current) return;
+    const timer = window.setTimeout(() => void flush(false), 800);
+    return () => window.clearTimeout(timer);
+  }, [unsaved?.sig, body, flush]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // And at once when the card is closed, the page is left or the phone switches to another app.
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === "hidden") void flush(true);
+    };
+    const onLeave = () => void flush(true);
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", onLeave);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", onLeave);
+      void flush(true);
+    };
+  }, [flush]);
+
+  const contactButtons = (
+    <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+      {phone ? (
+        <a href={telHref(phone)} className="btn-primary">
+          <Phone className="h-4 w-4" aria-hidden="true" /> <span className="num">{formatPhoneDisplay(phone)}</span>
+        </a>
+      ) : null}
+      {whatsapp ? (
+        <a href={whatsappHref(whatsapp, fill(e.whatsappPrefill, { subject: subject.label }))} target="_blank" rel="noopener noreferrer" className="btn-outline">
+          <WhatsAppIcon /> {whatsappLabel}
+        </a>
+      ) : null}
+    </div>
+  );
+
+  if (card.stage === "done") {
     return (
-      <div className="py-2" role="status">
+      <div className="py-2" role="status" data-stage="done">
         <CheckCircle2 className="h-10 w-10 text-success-600" aria-hidden="true" />
         <h3 className="mt-4 text-[1.4rem] leading-snug">{t.successTitle}</h3>
         <p className="mt-2 text-[15px] text-ink-700">{fill(t.successText, { ref: subject.ref })}</p>
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          {phone ? (
-            <a href={telHref(phone)} className="btn-primary">
-              <Phone className="h-4 w-4" aria-hidden="true" /> <span className="num">{formatPhoneDisplay(phone)}</span>
-            </a>
-          ) : null}
-          {whatsapp ? (
-            <a href={whatsappHref(whatsapp, fill(e.whatsappPrefill, { subject: subject.label }))} target="_blank" rel="noopener noreferrer" className="btn-outline">
-              <WhatsAppIcon /> {whatsappLabel}
-            </a>
-          ) : null}
+        {contactButtons}
+      </div>
+    );
+  }
+
+  if (card.stage === "answers") {
+    const firstName = card.name.trim().split(/\s+/)[0] ?? "";
+    const finish = () => {
+      if (!card.purpose && !card.timeline && !card.budget) return setNudge(true);
+      setFinishing(true);
+      void flush(false).then(() => {
+        setFinishing(false);
+        update({ stage: "done" });
+      });
+    };
+    return (
+      <div data-stage="answers">
+        <div className="flex items-start gap-3.5 rounded-[4px] border border-success-600/20 bg-success-100 p-4" role="status">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success-600 text-paper-0">
+            <Check className="h-5 w-5" strokeWidth={3} aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[1.05rem] font-semibold leading-snug text-navy-900">{fill(t.sentTitle, { name: firstName })}</p>
+            <p className="mt-1 text-[14px] text-ink-700">{fill(t.sentText, { phone: formatPhoneDisplay(card.mobile), ref: subject.ref })}</p>
+          </div>
         </div>
-        <CloseEnquiryLink href={detailsHref} className="link-arrow mt-6 inline-flex">
-          {t.viewDetails} <ArrowRight className="h-4 w-4" aria-hidden="true" />
-        </CloseEnquiryLink>
+
+        <div className="mt-7 space-y-6">
+          <div>
+            <h3 className="text-[1.2rem] leading-snug">{t.qualifyTitle}</h3>
+            <p className="mt-1 text-[14px] text-ink-600">{t.qualifyText}</p>
+          </div>
+          <Choices name="purpose" legend={t.purposeQ} value={card.purpose} onChange={(v) => update({ purpose: v })} options={LEAD_PURPOSES.map((p) => ({ value: p, label: e.purposes[p] }))} />
+          <Choices name="timeline" legend={t.timelineQ} value={card.timeline} onChange={(v) => update({ timeline: v })} options={e.timelines.map((x) => ({ value: x, label: x }))} />
+          <Choices name="budget" legend={t.budgetQ} value={card.budget} onChange={(v) => update({ budget: v })} options={e.budgets.map((x) => ({ value: x, label: x }))} />
+          {nudge && !card.purpose && !card.timeline && !card.budget ? (
+            <p className="text-[14px] font-medium text-danger-700" role="alert">
+              {t.chooseOne}
+            </p>
+          ) : null}
+          <button type="button" onClick={finish} disabled={finishing} className="btn-primary w-full sm:w-auto sm:min-w-44">
+            {finishing ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+            {t.sendAnswers}
+          </button>
+        </div>
       </div>
     );
   }
@@ -99,106 +258,85 @@ export function InterestForm({ locale, t, e, whatsappLabel, subject, phone, what
   const error = state.status === "error" ? state.code : null;
   const errorText =
     error === "invalid_phone" ? e.invalidPhone : error === "invalid_name" ? e.invalidName : error === "consent_required" ? e.consentRequired : error === "too_many" ? e.tooMany : error ? e.errorGeneric : null;
-  const ready = Boolean(purpose && timeline);
 
   return (
-    <ActionForm action={action} pending={pending} className="relative" noValidate>
+    <form
+      className="relative space-y-4"
+      data-stage="details"
+      noValidate
+      onSubmit={(ev) => {
+        ev.preventDefault();
+        const data = new FormData(ev.currentTarget);
+        start(async () => {
+          const result = await submitEnquiry({ status: "idle" }, data);
+          setState(result);
+          if (result.status === "success") {
+            // Sending covered the name and number; nothing is left to save until the answers.
+            savedSig.current = "";
+            latest.current = null;
+            update({ stage: "answers" });
+          }
+        });
+      }}
+    >
       <input type="hidden" name="kind" value="buy" />
       <input type="hidden" name="locale" value={locale} />
-      <input type="hidden" name="source" value={source} />
+      <input type="hidden" name="source" value={card.source} />
       <input type="hidden" name="ref" value={subject.ref} />
+      <input type="hidden" name="draftKey" value={card.key} />
       {subject.propertyId ? <input type="hidden" name="propertyId" value={subject.propertyId} /> : null}
       {subject.siteId ? <input type="hidden" name="siteId" value={subject.siteId} /> : null}
       {subject.projectId ? <input type="hidden" name="projectId" value={subject.projectId} /> : null}
       {/* Honeypot: hidden from people, filled by bots. */}
       <div className="absolute -left-[9999px] top-0" aria-hidden="true">
         <label>
-          Website <input type="text" name="website" tabIndex={-1} autoComplete="off" />
+          Website <input ref={honeypot} type="text" name="website" tabIndex={-1} autoComplete="off" />
         </label>
       </div>
 
-      <p className="label-mono" aria-live="polite">
-        {fill(t.step, { n: String(step) })}
-      </p>
-      <div className="mt-2 grid grid-cols-2 gap-1.5" aria-hidden="true">
-        <span className="h-1 rounded-full bg-gold-500" />
-        <span className={cn("h-1 rounded-full", step === 2 ? "bg-gold-500" : "bg-navy-900/10")} />
+      <div>
+        <h3 className="text-[1.2rem] leading-snug">{t.detailsTitle}</h3>
+        <p className="mt-1 text-[14px] text-ink-600">{t.detailsText}</p>
       </div>
-
-      {/* Step one stays in the form while hidden, so its answers are sent with step two. */}
-      <div hidden={step !== 1} className="mt-6 space-y-6" data-step="1">
-        <div>
-          <h3 className="text-[1.2rem] leading-snug">{t.qualifyTitle}</h3>
-          <p className="mt-1 text-[14px] text-ink-600">{t.qualifyText}</p>
-        </div>
-        <Choices name="purpose" legend={t.purposeQ} value={purpose} onChange={setPurpose} options={LEAD_PURPOSES.map((p) => ({ value: p, label: e.purposes[p] }))} />
-        <Choices name="timeline" legend={t.timelineQ} value={timeline} onChange={setTimeline} options={e.timelines.map((x) => ({ value: x, label: x }))} />
-        <Choices name="budget" legend={t.budgetQ} note={t.optional} value={budget} onChange={setBudget} options={e.budgets.map((x) => ({ value: x, label: x }))} />
-        {nudge && !ready ? (
-          <p className="text-[14px] font-medium text-danger-700" role="alert">
-            {t.chooseOne}
-          </p>
-        ) : null}
-        <button
-          type="button"
-          className="btn-primary w-full sm:w-auto sm:min-w-44"
-          onClick={() => {
-            if (!ready) return setNudge(true);
-            setStep(2);
-          }}
-        >
-          {t.next} <ArrowRight className="h-4 w-4" aria-hidden="true" />
+      <div>
+        <label htmlFor="int-name" className="label">
+          {e.name} <span className="text-danger-600">*</span>
+        </label>
+        <input id="int-name" name="name" value={card.name} onChange={(ev) => update({ name: ev.target.value })} autoComplete="name" maxLength={80} className={cn("field", error === "invalid_name" && "field-error")} />
+      </div>
+      <div>
+        <label htmlFor="int-phone" className="label">
+          {e.phone} <span className="text-danger-600">*</span>
+        </label>
+        <input
+          id="int-phone"
+          name="phone"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          placeholder="98765 43210"
+          value={card.mobile}
+          onChange={(ev) => update({ mobile: ev.target.value })}
+          maxLength={16}
+          className={cn("field num", error === "invalid_phone" && "field-error")}
+        />
+        <p className="help">{e.phoneHint}</p>
+      </div>
+      <label className="flex items-start gap-3 text-[14px] text-ink-700">
+        <input type="checkbox" name="consent" checked={card.consent} onChange={(ev) => update({ consent: ev.target.checked })} className="check" />
+        <span>{e.consent}</span>
+      </label>
+      {errorText ? (
+        <p className="rounded-[3px] border border-danger-600/25 bg-danger-100 px-4 py-3 text-[14px] font-medium text-danger-700" role="alert">
+          {errorText}
+        </p>
+      ) : null}
+      <div className="pt-1">
+        <button type="submit" disabled={pending} className="btn-primary w-full sm:w-auto sm:min-w-52">
+          {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+          {pending ? e.submitting : t.submit}
         </button>
       </div>
-
-      <div hidden={step !== 2} className="mt-6 space-y-4" data-step="2">
-        <div>
-          <h3 className="text-[1.2rem] leading-snug">{t.detailsTitle}</h3>
-          <p className="mt-1 text-[14px] text-ink-600">{t.detailsText}</p>
-        </div>
-        <div>
-          <label htmlFor="int-name" className="label">
-            {e.name} <span className="text-danger-600">*</span>
-          </label>
-          <input id="int-name" name="name" value={name} onChange={(ev) => setName(ev.target.value)} autoComplete="name" maxLength={80} className={cn("field", error === "invalid_name" && "field-error")} />
-        </div>
-        <div>
-          <label htmlFor="int-phone" className="label">
-            {e.phone} <span className="text-danger-600">*</span>
-          </label>
-          <input
-            id="int-phone"
-            name="phone"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            placeholder="98765 43210"
-            value={mobile}
-            onChange={(ev) => setMobile(ev.target.value)}
-            maxLength={16}
-            className={cn("field num", error === "invalid_phone" && "field-error")}
-          />
-          <p className="help">{e.phoneHint}</p>
-        </div>
-        <label className="flex items-start gap-3 text-[14px] text-ink-700">
-          <input type="checkbox" name="consent" checked={consent} onChange={(ev) => setConsent(ev.target.checked)} className="check" />
-          <span>{e.consent}</span>
-        </label>
-        {errorText ? (
-          <p className="rounded-[3px] border border-danger-600/25 bg-danger-100 px-4 py-3 text-[14px] font-medium text-danger-700" role="alert">
-            {errorText}
-          </p>
-        ) : null}
-        <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:items-center">
-          <button type="button" onClick={() => setStep(1)} className="btn-ghost">
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {t.back}
-          </button>
-          <button type="submit" disabled={pending} className="btn-primary sm:min-w-52">
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-            {pending ? e.submitting : t.submit}
-          </button>
-        </div>
-      </div>
-    </ActionForm>
+    </form>
   );
 }

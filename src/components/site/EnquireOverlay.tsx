@@ -1,8 +1,9 @@
 "use client";
 
-import { X } from "lucide-react";
+import { Languages, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
+import { localeNames, locales, type Locale } from "@/lib/i18n/config";
 import { cn } from "@/lib/utils";
 
 /**
@@ -63,6 +64,43 @@ export function EnquireLink({ href, className, children }: { href: string; class
     >
       {children}
     </a>
+  );
+}
+
+/**
+ * English or Kannada, at the top of the card. The card opens again in the other language with
+ * what was already typed (the form keeps it in the tab), and the visit's history is not
+ * lengthened, so closing it afterwards still lands on the listing.
+ */
+export function EnquiryLanguage({ locale, hrefs, label }: { locale: Locale; hrefs: Record<Locale, string>; label: string }) {
+  return (
+    <div className="flex min-h-10 items-center gap-2" data-interest-lang>
+      <Languages className="h-4 w-4 text-ink-500" aria-hidden="true" />
+      <div className="inline-flex rounded-[3px] border border-navy-900/15 bg-paper-0 p-0.5" role="group" aria-label={label}>
+        {locales.map((l) =>
+          l === locale ? (
+            <span key={l} lang={l} aria-current="true" className="rounded-[2px] bg-navy-900 px-3 py-1 text-[13px] font-semibold leading-6 text-gold-200">
+              {localeNames[l]}
+            </span>
+          ) : (
+            <a
+              key={l}
+              href={hrefs[l]}
+              lang={l}
+              hrefLang={l}
+              onClick={(ev) => {
+                if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+                ev.preventDefault();
+                window.location.replace(hrefs[l]);
+              }}
+              className="rounded-[2px] px-3 py-1 text-[13px] font-semibold leading-6 text-navy-800 transition-colors hover:bg-navy-900/6"
+            >
+              {localeNames[l]}
+            </a>
+          ),
+        )}
+      </div>
+    </div>
   );
 }
 

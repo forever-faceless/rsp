@@ -52,6 +52,9 @@ export type ListingSource = (typeof LISTING_SOURCES)[number];
 
 export const LEAD_PURPOSES = ["self_use", "investment", "other"] as const;
 export type LeadPurpose = (typeof LEAD_PURPOSES)[number];
+/** A lead's purpose, or "" when the buyer has not said: the quick enquiry asks for it after the number. */
+export const LEAD_PURPOSE_ANSWERS = ["", ...LEAD_PURPOSES] as const;
+export type LeadPurposeAnswer = (typeof LEAD_PURPOSE_ANSWERS)[number];
 
 /** Bilingual free-text item used in JSON columns (amenities, features). */
 export type BilingualItem = { en: string; kn: string };
