@@ -3,6 +3,7 @@
 import { Languages, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { track } from "@/lib/analytics";
 import { localeNames, locales, type Locale } from "@/lib/i18n/config";
 import { cn } from "@/lib/utils";
 
@@ -96,6 +97,7 @@ export function EnquiryLanguage({ locale, hrefs, label }: { locale: Locale; href
               onClick={(ev) => {
                 if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
                 ev.preventDefault();
+                track("language_switched", { to: l, place: "enquiry_card" }, { leaving: true });
                 window.location.replace(hrefs[l]);
               }}
               className="rounded-[2px] px-3 py-1 text-[13px] font-semibold leading-6 text-navy-800 transition-colors hover:bg-navy-900/6"

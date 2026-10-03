@@ -4,8 +4,9 @@ import { Building2, ExternalLink, FolderKanban, LayoutDashboard, LogOut, MapPinn
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { logout } from "@/lib/actions/auth";
+import { markStaffBrowser } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
 type Item = { href: string; label: string; short: string; icon: LucideIcon; exact?: boolean };
@@ -34,6 +35,9 @@ export function AdminShell({ user, newLeads, children }: { user: string; newLead
     setLastPath(pathname);
     setOpen(false);
   }
+
+  // A browser signed in here is the office's: its visits to the public site are not counted.
+  useEffect(() => markStaffBrowser(), []);
 
   const isActive = (item: Item) => (item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`));
   // The survey tool is a full-screen workspace, so the page chrome steps out of its way.

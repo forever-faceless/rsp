@@ -412,8 +412,31 @@ export const en = {
     formTitle: "Or leave your details",
     mapTitle: "Find our office",
   },
+  privacy: {
+    title: "Privacy",
+    subtitle: "What we keep when you use this website, and why.",
+    sections: [
+      {
+        title: "What you send us",
+        text: "When you ask about a property or offer one for sale, we keep your name, mobile number and the answers you give, so we can call you back. On the quick enquiry card the number is kept as soon as it is typed, so we can still reach you if the page closes before you press send.",
+      },
+      {
+        title: "How the website is used",
+        text: "We measure how the website is used: which pages are opened, what is tapped, and recordings of visits, so we can see where it is hard to use and make it better. Anything typed into a form is hidden in these recordings. We use PostHog for this, and the data is kept on its servers in the European Union. Recordings are kept for 30 days.",
+      },
+      {
+        title: "Who sees it",
+        text: "Your details are used only by RSP Ventures and our advocate, to answer your enquiry. We do not sell them.",
+      },
+      {
+        title: "Your choice",
+        text: "To have your details removed, or to ask what we hold about you, write to {email} or call {phone}.",
+      },
+    ],
+  },
   footer: {
     about: "Layouts, individual sites, houses and land.",
+    privacy: "Privacy",
     explore: "Explore",
     company: "Company",
     contactTitle: "Contact",

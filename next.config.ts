@@ -18,6 +18,17 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/*": ["./drizzle/**/*", "./src/assets/fonts/*.ttf", "./public/brand/logo-wide.png"],
   },
+  // Analytics travel through the site's own address to PostHog's EU servers, so blockers that
+  // stop third-party trackers do not silently drop them. PostHog's addresses end in a slash,
+  // which Next would otherwise redirect away.
+  skipTrailingSlashRedirect: true,
+  async rewrites() {
+    return [
+      { source: "/ingest/static/:path*", destination: "https://eu-assets.i.posthog.com/static/:path*" },
+      { source: "/ingest/array/:path*", destination: "https://eu-assets.i.posthog.com/array/:path*" },
+      { source: "/ingest/:path*", destination: "https://eu.i.posthog.com/:path*" },
+    ];
+  },
   async headers() {
     return [
       {

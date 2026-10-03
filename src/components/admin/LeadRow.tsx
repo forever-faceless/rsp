@@ -1,8 +1,9 @@
-import { Mail, Phone } from "lucide-react";
+import { Mail, Phone, PlayCircle } from "lucide-react";
 import { WhatsAppIcon } from "@/components/site/PhoneLinks";
 import { deleteLead, updateLeadNotes } from "@/lib/actions/leads";
 import type { LeadWithRefs } from "@/lib/db/queries";
 import { LEAD_STATUSES, type LeadStatus } from "@/lib/db/schema";
+import { replayUrl } from "@/lib/analytics-config";
 import { leadSourceLabel } from "@/lib/lead-sources";
 import { cn, formatDateTime, formatPhoneDisplay, telHref, whatsappHref } from "@/lib/utils";
 import { ConfirmButton, SubmitButton } from "./ui";
@@ -59,6 +60,11 @@ export function LeadRow({ lead, compact = false, company }: { lead: LeadWithRefs
             <a href={whatsappHref(lead.phone, waText)} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm">
               <WhatsAppIcon className="h-3.5 w-3.5" /> WhatsApp
             </a>
+            {lead.sessionId ? (
+              <a href={replayUrl(lead.sessionId)} target="_blank" rel="noopener noreferrer" className="btn-ghost btn-sm" data-replay>
+                <PlayCircle className="h-3.5 w-3.5" aria-hidden="true" /> Watch their visit
+              </a>
+            ) : null}
             {lead.email ? (
               <a href={`mailto:${lead.email}`} className="btn-ghost btn-sm">
                 <Mail className="h-3.5 w-3.5" aria-hidden="true" /> {lead.email}

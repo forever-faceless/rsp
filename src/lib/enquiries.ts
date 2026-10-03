@@ -33,12 +33,13 @@ export async function saveCardProgress(input: CardProgress, ip: string): Promise
     ...(input.budget !== undefined ? { budget: input.budget } : {}),
   };
   const contact = input.consent && isIndianMobile(input.phone) ? { name: input.name, phone: normalisePhone(input.phone) } : null;
+  const visit = input.sessionId ? { sessionId: input.sessionId } : {};
 
   const [existing] = await db.select({ id: leads.id, sent: leads.sent }).from(leads).where(eq(leads.draftKey, input.draftKey)).limit(1);
   if (existing) {
-    if (Object.keys(answers).length) await db.update(leads).set(answers).where(eq(leads.id, existing.id));
+    if (Object.keys(answers).length) await db.update(leads).set({ ...answers, ...visit }).where(eq(leads.id, existing.id));
     // Until it is sent, the enquiry follows the number as it is corrected.
-    if (contact && !existing.sent) await db.update(leads).set(contact).where(and(eq(leads.id, existing.id), eq(leads.sent, false)));
+    if (contact && !existing.sent) await db.update(leads).set({ ...contact, ...visit }).where(and(eq(leads.id, existing.id), eq(leads.sent, false)));
     return;
   }
   if (!contact || rateLimited(ip)) return;
@@ -54,6 +55,7 @@ export async function saveCardProgress(input: CardProgress, ip: string): Promise
     source: input.source,
     draftKey: input.draftKey,
     sent: false,
+    sessionId: input.sessionId,
   };
   try {
     await db

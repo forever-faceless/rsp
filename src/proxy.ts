@@ -61,7 +61,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Everything except API routes, uploaded files, Next internals and static assets.
-    "/((?!api|uploads|_next/static|_next/image|favicon\\.ico|brand|demo|icon|apple-icon|opengraph-image|robots\\.txt|sitemap\\.xml|manifest\\.webmanifest|.*\\.(?:png|jpg|jpeg|svg|webp|gif|ico|txt|xml|pdf|html|kml|json|mp4|webm|woff2?)$).*)",
+    // Everything except API routes, analytics, uploaded files, Next internals and static assets.
+    "/((?!api|ingest|uploads|_next/static|_next/image|favicon\\.ico|brand|demo|icon|apple-icon|opengraph-image|robots\\.txt|sitemap\\.xml|manifest\\.webmanifest|.*\\.(?:png|jpg|jpeg|svg|webp|gif|ico|txt|xml|pdf|html|kml|json|mp4|webm|woff2?)$).*)",
   ],
 };

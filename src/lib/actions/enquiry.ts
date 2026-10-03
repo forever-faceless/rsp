@@ -58,6 +58,7 @@ export async function submitEnquiry(_prev: EnquiryState, formData: FormData): Pr
     consent: formData.get("consent") === "on",
     website: formData.get("website") ?? "",
     draftKey: formData.get("draftKey") ?? "",
+    sessionId: formData.get("sessionId") ?? "",
   });
 
   if (!parsed.success) {
@@ -89,6 +90,7 @@ export async function submitEnquiry(_prev: EnquiryState, formData: FormData): Pr
     message: d.message,
     locale: d.locale,
     source: d.source,
+    sessionId: d.sessionId,
   };
   const db = await getDb();
   // The quick enquiry card may already have kept this number while it was typed. Sending
@@ -101,7 +103,7 @@ export async function submitEnquiry(_prev: EnquiryState, formData: FormData): Pr
           .onConflictDoUpdate({
             target: leads.draftKey,
             targetWhere: sql`draft_key <> ''`,
-            set: { name: d.name, phone, email: d.email, locale: d.locale, sent: true },
+            set: { name: d.name, phone, email: d.email, locale: d.locale, sent: true, ...(d.sessionId ? { sessionId: d.sessionId } : {}) },
           })
           .returning({ id: leads.id })
       : db.insert(leads).values(values).returning({ id: leads.id });

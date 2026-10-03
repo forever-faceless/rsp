@@ -57,6 +57,7 @@ export function SiteFooter({ locale, dict, settings }: { locale: Locale; dict: D
   const company = [
     { href: localePath(locale, "/about"), label: dict.nav.about },
     { href: localePath(locale, "/contact"), label: dict.nav.contact },
+    { href: localePath(locale, "/privacy"), label: dict.footer.privacy },
     { href: "/admin", label: dict.nav.admin },
   ];
 

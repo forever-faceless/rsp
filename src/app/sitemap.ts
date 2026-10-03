@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl();
   const entries: MetadataRoute.Sitemap = [];
-  const staticPaths = ["", "/properties", "/projects", "/sell", "/about", "/contact", "/enquire"];
+  const staticPaths = ["", "/properties", "/projects", "/sell", "/about", "/contact", "/enquire", "/privacy"];
   for (const locale of locales) {
     for (const p of staticPaths) {
       entries.push({ url: `${base}/${locale}${p}`, changeFrequency: "weekly", priority: p === "" ? 1 : 0.7 });

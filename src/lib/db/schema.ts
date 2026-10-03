@@ -370,6 +370,8 @@ export const leads = sqliteTable("leads", {
   draftKey: text("draft_key").notNull().default(""),
   /** False while the visitor has typed a number on the quick enquiry card without pressing send. */
   sent: integer("sent", { mode: "boolean" }).notNull().default(true),
+  /** The PostHog recording of the visit the enquiry came from, for the office to watch. */
+  sessionId: text("session_id").notNull().default(""),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),

@@ -17,6 +17,9 @@ const longitude = z.preprocess((v) => (v === "" || v == null ? null : Number(v))
 
 const facing = z.union([z.literal(""), z.enum(FACINGS)]).default("");
 
+/** A PostHog recording id; anything else is dropped rather than failing the enquiry. */
+const visitIdField = z.string().trim().max(100).regex(/^[A-Za-z0-9-]*$/).catch("");
+
 export const leadSchema = z.object({
   kind: z.enum(LEAD_KINDS).default("buy"),
   name: z.string().trim().min(2).max(80),
@@ -36,6 +39,7 @@ export const leadSchema = z.object({
   // Honeypot: real users never fill this hidden field.
   website: z.string().max(0).default(""),
   draftKey: z.union([z.literal(""), z.string().regex(/^[a-z0-9-]{16,64}$/i)]).default(""),
+  sessionId: visitIdField,
 });
 
 /**
@@ -56,6 +60,7 @@ export const cardProgressSchema = z.object({
   purpose: z.enum(LEAD_PURPOSE_ANSWERS).optional().catch(undefined),
   budget: z.string().trim().max(60).optional().catch(undefined),
   timeline: z.string().trim().max(60).optional().catch(undefined),
+  sessionId: visitIdField,
   website: z.string().max(0).default(""),
 });
 export type CardProgress = z.infer<typeof cardProgressSchema>;

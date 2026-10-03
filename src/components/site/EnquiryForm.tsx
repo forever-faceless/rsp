@@ -8,6 +8,7 @@ import { fill, type Dictionary } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n/config";
 import { cn, formatPhoneDisplay, telHref, whatsappHref } from "@/lib/utils";
 import { WhatsAppIcon } from "./PhoneLinks";
+import { useCountSent, VisitField } from "./VisitField";
 import { ActionForm } from "@/components/ActionForm";
 
 export type EnquirySubject = {
@@ -38,6 +39,7 @@ const initial: EnquiryState = { status: "idle" };
 
 export function EnquiryForm({ locale, t, whatsappLabel, projects, subject, phone, whatsapp, source, compact, tone = "light" }: EnquiryFormProps) {
   const [state, action, pending] = useActionState(submitEnquiry, initial);
+  useCountSent(state, "enquire", subject.ref ?? "");
   const dark = tone === "dark";
   const fixed = Boolean(subject.ref);
 
@@ -75,6 +77,7 @@ export function EnquiryForm({ locale, t, whatsappLabel, projects, subject, phone
   return (
     <ActionForm action={action} pending={pending} className="relative space-y-4" noValidate>
       <input type="hidden" name="kind" value="buy" />
+      <VisitField />
       <input type="hidden" name="locale" value={locale} />
       <input type="hidden" name="source" value={source} />
       <input type="hidden" name="ref" value={subject.ref ?? ""} />

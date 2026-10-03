@@ -3,6 +3,7 @@
 import { Check, CheckCircle2, Loader2, Phone } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { submitEnquiry, type EnquiryState } from "@/lib/actions/enquiry";
+import { identifyLead, track, visitId } from "@/lib/analytics";
 import { LEAD_PURPOSES } from "@/lib/db/enums";
 import { fill, type Dictionary } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n/config";
@@ -62,6 +63,11 @@ function sendProgress(body: string, leaving: boolean): Promise<void> {
   );
 }
 
+/** How the visitor reached the card, for the figures: a shared link, or the listing's own button. */
+function via(source: string): "shared_link" | "listing" {
+  return source.includes("/interest") ? "shared_link" : "listing";
+}
+
 /** One question answered by tapping, as a row of choices. Each choice is an ordinary radio button. */
 function Choices({ name, legend, options, value, onChange }: { name: string; legend: string; options: { value: string; label: string }[]; value: string; onChange: (v: string) => void }) {
   return (
@@ -114,7 +120,8 @@ export function InterestForm({ locale, t, e, whatsappLabel, subject, phone, what
     // eslint-disable-next-line react-hooks/set-state-in-effect -- the tab's copy can only be read after hydration
     setCard((c) => (fresh ? { ...c, ...saved } : { ...c, key: newKey(), at: Date.now() }));
     setLoaded(true);
-  }, [storeKey]);
+    track("enquiry_opened", { ref: subject.ref, via: via((fresh && saved?.source) || source), stage: (fresh && saved?.stage) || "details" });
+  }, [storeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!loaded) return;
@@ -148,19 +155,32 @@ export function InterestForm({ locale, t, e, whatsappLabel, subject, phone, what
         propertyId: subject.propertyId ?? "",
         locale,
         source: card.source,
+        sessionId: visitId(),
         ...(unsaved.answers ? { purpose: card.purpose, timeline: card.timeline, budget: card.budget } : {}),
       })
     : "";
 
   const latest = useRef<{ sig: string; body: string } | null>(null);
   const savedSig = useRef("");
-  const flush = useCallback((leaving: boolean): Promise<void> => {
-    const next = latest.current;
-    // A filled honeypot is a bot: nothing it types is kept.
-    if (!next || next.sig === savedSig.current || honeypot.current?.value) return Promise.resolve();
-    savedSig.current = next.sig;
-    return sendProgress(next.body, leaving);
-  }, []);
+  const numberCounted = useRef(false);
+  const stage = useRef<Stage>(card.stage);
+  useEffect(() => {
+    stage.current = card.stage;
+  }, [card.stage]);
+  const flush = useCallback(
+    (leaving: boolean): Promise<void> => {
+      const next = latest.current;
+      // A filled honeypot is a bot: nothing it types is kept.
+      if (!next || next.sig === savedSig.current || honeypot.current?.value) return Promise.resolve();
+      savedSig.current = next.sig;
+      if (next.sig.startsWith("d|") && !numberCounted.current) {
+        numberCounted.current = true;
+        track("enquiry_number_entered", { ref: subject.ref }, { leaving });
+      }
+      return sendProgress(next.body, leaving);
+    },
+    [subject.ref],
+  );
 
   // Saved a moment after the typing or tapping stops.
   useEffect(() => {
@@ -182,8 +202,9 @@ export function InterestForm({ locale, t, e, whatsappLabel, subject, phone, what
       document.removeEventListener("visibilitychange", onHide);
       window.removeEventListener("pagehide", onLeave);
       void flush(true);
+      track("enquiry_closed", { ref: subject.ref, stage: stage.current });
     };
-  }, [flush]);
+  }, [flush, subject.ref]);
 
   const contactButtons = (
     <div className="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -216,6 +237,7 @@ export function InterestForm({ locale, t, e, whatsappLabel, subject, phone, what
     const finish = () => {
       if (!card.purpose && !card.timeline && !card.budget) return setNudge(true);
       setFinishing(true);
+      track("enquiry_answered", { ref: subject.ref, purpose: card.purpose, timeline: card.timeline, budget: card.budget });
       void flush(false).then(() => {
         setFinishing(false);
         update({ stage: "done" });
@@ -228,8 +250,12 @@ export function InterestForm({ locale, t, e, whatsappLabel, subject, phone, what
             <Check className="h-5 w-5" strokeWidth={3} aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <p className="text-[1.05rem] font-semibold leading-snug text-navy-900">{fill(t.sentTitle, { name: firstName })}</p>
-            <p className="mt-1 text-[14px] text-ink-700">{fill(t.sentText, { phone: formatPhoneDisplay(card.mobile), ref: subject.ref })}</p>
+            <p className="text-[1.05rem] font-semibold leading-snug text-navy-900" data-private>
+              {fill(t.sentTitle, { name: firstName })}
+            </p>
+            <p className="mt-1 text-[14px] text-ink-700" data-private>
+              {fill(t.sentText, { phone: formatPhoneDisplay(card.mobile), ref: subject.ref })}
+            </p>
           </div>
         </div>
 
@@ -267,10 +293,13 @@ export function InterestForm({ locale, t, e, whatsappLabel, subject, phone, what
       onSubmit={(ev) => {
         ev.preventDefault();
         const data = new FormData(ev.currentTarget);
+        data.set("sessionId", visitId());
         start(async () => {
           const result = await submitEnquiry({ status: "idle" }, data);
           setState(result);
           if (result.status === "success") {
+            track("enquiry_sent", { form: "quick_enquiry", ref: subject.ref, via: via(card.source) });
+            identifyLead(result.leadId, subject.ref);
             // Sending covered the name and number; nothing is left to save until the answers.
             savedSig.current = "";
             latest.current = null;

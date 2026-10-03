@@ -8,6 +8,7 @@ import type { Dictionary } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n/config";
 import { cn } from "@/lib/utils";
 import { ActionForm } from "@/components/ActionForm";
+import { useCountSent, VisitField } from "./VisitField";
 
 const initial: EnquiryState = { status: "idle" };
 
@@ -19,6 +20,7 @@ type Props = { locale: Locale; t: Dictionary["sell"]; e: Dictionary["enquiry"]; 
  */
 export function SellForm({ locale, t, e, types, source }: Props) {
   const [state, action, pending] = useActionState(submitEnquiry, initial);
+  useCountSent(state, "sell", "");
 
   if (state.status === "success") {
     return (
@@ -37,6 +39,7 @@ export function SellForm({ locale, t, e, types, source }: Props) {
   return (
     <ActionForm action={action} pending={pending} className="relative space-y-4" noValidate>
       <input type="hidden" name="kind" value="sell" />
+      <VisitField />
       <input type="hidden" name="purpose" value="other" />
       <input type="hidden" name="locale" value={locale} />
       <input type="hidden" name="source" value={source} />
