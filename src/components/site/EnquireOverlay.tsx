@@ -2,7 +2,7 @@
 
 import { Languages, X } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { localeNames, locales, type Locale } from "@/lib/i18n/config";
 import { cn } from "@/lib/utils";
 
@@ -32,8 +32,12 @@ export function closeEnquiry(listingPath: string) {
   }
 }
 
+/** The open card's own close, which lets it slide away first. */
+const CloseContext = createContext<(() => void) | null>(null);
+
 /** A link to the listing that, inside the card, simply closes it: the listing is already there behind it. */
 export function CloseEnquiryLink({ href, className, children }: { href: string; className?: string; children: React.ReactNode }) {
+  const close = useContext(CloseContext);
   return (
     <a
       href={href}
@@ -41,7 +45,8 @@ export function CloseEnquiryLink({ href, className, children }: { href: string; 
       onClick={(ev) => {
         if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
         ev.preventDefault();
-        closeEnquiry(href);
+        if (close) close();
+        else closeEnquiry(href);
       }}
     >
       {children}
@@ -104,13 +109,74 @@ export function EnquiryLanguage({ locale, hrefs, label }: { locale: Locale; href
   );
 }
 
-type Props = { interestPath: string; listingPath: string; closeLabel: string; children: React.ReactNode };
+type Props = {
+  interestPath: string;
+  listingPath: string;
+  closeLabel: string;
+  /**
+   * How long someone landing on a shared link sees the listing before the card rises over it,
+   * in milliseconds from the page's start. A card opened from the listing comes up at once.
+   */
+  landingDelay?: number;
+  children: React.ReactNode;
+};
 
-export function EnquireOverlay({ interestPath, listingPath, closeLabel, children }: Props) {
+const EXIT_MS = 240;
+/** How far the sheet must be pulled down before letting go closes it. */
+const DISMISS_PX = 90;
+
+/**
+ * On a phone the card is a sheet rising from the bottom, with a strip of the dimmed listing left
+ * showing above it and a handle to pull it down, so it reads as something laid over the page and
+ * put away again, not a page of its own. On a wider screen it is a card in the middle.
+ */
+export function EnquireOverlay({ interestPath, listingPath, closeLabel, landingDelay = 0, children }: Props) {
   const pathname = usePathname();
   const open = pathname === interestPath;
+  // Only the card a visitor lands on waits; once it has been closed, it opens again at once.
+  const [landing, setLanding] = useState(landingDelay > 0);
+  // Until the card has risen it lets taps through to the listing, which is all that shows.
+  const [ready, setReady] = useState(false);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (wasOpen !== open) {
+    setWasOpen(open);
+    if (!open) {
+      setLanding(false);
+      setReady(false);
+    }
+  }
+  const delay = landing ? landingDelay : 0;
+  const sheet = useRef<HTMLDivElement>(null);
+  const backdrop = useRef<HTMLDivElement>(null);
+  const leaving = useRef(false);
+  const drag = useRef<{ y: number; dy: number } | null>(null);
 
-  const close = () => closeEnquiry(listingPath);
+  const close = useCallback(() => {
+    if (leaving.current) return;
+    leaving.current = true;
+    const finish = () => {
+      leaving.current = false;
+      closeEnquiry(listingPath);
+    };
+    const el = sheet.current;
+    const bg = backdrop.current;
+    if (!el || !bg || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return finish();
+    const phone = window.matchMedia("(max-width: 639px)").matches;
+    el.style.transition = `transform ${EXIT_MS}ms cubic-bezier(0.4, 0, 1, 1), opacity ${EXIT_MS}ms ease-in`;
+    el.style.transform = phone ? "translateY(100%)" : "translateY(12px) scale(0.98)";
+    if (!phone) el.style.opacity = "0";
+    bg.style.transition = `opacity ${EXIT_MS}ms ease-in`;
+    bg.style.opacity = "0";
+    window.setTimeout(finish, EXIT_MS);
+  }, [listingPath]);
+
+  useEffect(() => {
+    if (!open || ready) return;
+    // Counted from the page's start, so a slow load does not add a second wait on top.
+    const wait = delay ? Math.max(0, delay + 300 - performance.now()) : 0;
+    const timer = window.setTimeout(() => setReady(true), wait);
+    return () => window.clearTimeout(timer);
+  }, [open, ready, delay]);
 
   useEffect(() => {
     if (!open) return;
@@ -125,44 +191,71 @@ export function EnquireOverlay({ interestPath, listingPath, closeLabel, children
       root.style.overflow = before;
       window.removeEventListener("keydown", onKey);
     };
-    // close reads only module state and the paths, which do not change while the card is open
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, close]);
 
   if (!open) return null;
   return (
-    <div
-      className="fixed inset-0 z-[70] overflow-y-auto bg-navy-950/80 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="interest-title"
-      data-interest
-      onClick={(ev) => {
-        if (ev.target === ev.currentTarget) close();
-      }}
-    >
-      <div
-        className="flex min-h-full items-start justify-center sm:items-center sm:p-6"
-        onClick={(ev) => {
-          if (ev.target === ev.currentTarget) close();
-        }}
-      >
-        <div className={cn("relative w-full max-w-5xl bg-paper-50 shadow-lift sm:rounded-[4px] lg:grid lg:grid-cols-[1.15fr_0.85fr]")}>
-          <a
-            href={listingPath}
-            aria-label={closeLabel}
-            data-interest-close
-            onClick={(ev) => {
-              ev.preventDefault();
-              close();
-            }}
-            className="absolute right-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-[3px] bg-paper-0/90 text-navy-900 shadow-card hover:bg-paper-0"
+    <CloseContext.Provider value={close}>
+      <div className="fixed inset-0 z-[70]" role="dialog" aria-modal="true" aria-labelledby="interest-title" data-interest style={{ ["--enter-delay" as string]: `${delay}ms` }}>
+        <div ref={backdrop} className={cn("enquiry-backdrop absolute inset-0 bg-navy-950/60 sm:backdrop-blur-sm", !ready && "pointer-events-none")} onClick={close} aria-hidden="true" />
+        <div className="pointer-events-none absolute inset-0 flex items-end justify-center sm:items-center sm:p-6">
+          <div
+            ref={sheet}
+            className={cn(
+              "enquiry-sheet relative flex max-h-[calc(100dvh-5.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-t-[16px] bg-paper-50 shadow-lift sm:max-h-[calc(100dvh-3rem)] sm:rounded-[4px]",
+              ready && "pointer-events-auto",
+            )}
+            data-interest-sheet
           >
-            <X className="h-5 w-5" aria-hidden="true" />
-          </a>
-          {children}
+            {/* The handle: pull the sheet down to put it away. */}
+            <div
+              className="flex h-7 shrink-0 cursor-grab touch-none items-center justify-center sm:hidden"
+              aria-hidden="true"
+              data-interest-handle
+              onPointerDown={(ev) => {
+                if (ev.pointerType === "mouse" || !sheet.current) return;
+                drag.current = { y: ev.clientY, dy: 0 };
+                ev.currentTarget.setPointerCapture(ev.pointerId);
+                sheet.current.style.transition = "none";
+              }}
+              onPointerMove={(ev) => {
+                const d = drag.current;
+                if (!d || !sheet.current) return;
+                d.dy = Math.max(0, ev.clientY - d.y);
+                sheet.current.style.transform = `translateY(${d.dy}px)`;
+              }}
+              onPointerUp={() => {
+                const d = drag.current;
+                const el = sheet.current;
+                drag.current = null;
+                if (!d || !el) return;
+                if (d.dy > DISMISS_PX) return close();
+                el.style.transition = "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)";
+                el.style.transform = "";
+              }}
+              onPointerCancel={() => {
+                drag.current = null;
+                if (sheet.current) sheet.current.style.transform = "";
+              }}
+            >
+              <span className="h-[5px] w-11 rounded-full bg-navy-900/20" />
+            </div>
+            <a
+              href={listingPath}
+              aria-label={closeLabel}
+              data-interest-close
+              onClick={(ev) => {
+                ev.preventDefault();
+                close();
+              }}
+              className="absolute right-3 top-10 z-10 inline-flex h-10 w-10 items-center justify-center rounded-[3px] bg-paper-0/90 text-navy-900 shadow-card hover:bg-paper-0 sm:top-3"
+            >
+              <X className="h-5 w-5" aria-hidden="true" />
+            </a>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain lg:grid lg:grid-cols-[1.15fr_0.85fr]">{children}</div>
+          </div>
         </div>
       </div>
-    </div>
+    </CloseContext.Provider>
   );
 }

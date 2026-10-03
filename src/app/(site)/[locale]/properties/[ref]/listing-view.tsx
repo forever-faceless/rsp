@@ -135,7 +135,7 @@ export async function ListingView({ locale, rawRef, interest = false, from = "" 
     <>
       {/* Someone arriving on a shared enquiry link goes straight to the card, without the opening curtain. */}
       {interest ? null : <PageCurtain mode="lift" label={d.ref} caption={dict.loader.opening} />}
-      <EnquireOverlay interestPath={interestHref} listingPath={pageHref} closeLabel={dict.interest.close}>
+      <EnquireOverlay interestPath={interestHref} listingPath={pageHref} closeLabel={dict.interest.close} landingDelay={interest ? 1100 : 0}>
         <InterestCard d={d} dict={dict} locale={locale} settings={settings} source={enquirySource} listingPath={pageHref} languageHrefs={languageHrefs} />
       </EnquireOverlay>
 

@@ -458,7 +458,43 @@ html.motion [data-hero-hide]:not([data-revealed]) {
   }
 }
 
+/* The quick enquiry: on a phone a sheet rising from the bottom, on a wider screen a card settling
+   into the middle. "backwards" holds the first frame through the delay and then lets go, so the
+   sheet can still be pulled down by hand once it is up. */
+.enquiry-backdrop {
+  animation: enquiry-fade 360ms ease-out var(--enter-delay, 0ms) backwards;
+}
+.enquiry-sheet {
+  animation: enquiry-rise 560ms var(--ease-out-expo) var(--enter-delay, 0ms) backwards;
+}
+@media (min-width: 640px) {
+  .enquiry-sheet {
+    animation-name: enquiry-settle;
+    animation-duration: 440ms;
+  }
+}
+@keyframes enquiry-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes enquiry-rise {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes enquiry-settle {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .enquiry-backdrop,
+  .enquiry-sheet {
+    animation-duration: 1ms;
+  }
   .curtain {
     display: none;
   }
