@@ -33,13 +33,13 @@ export async function EnquiryPanel({ locale, dict, settings, subject, source, ti
           <h2 className="display-2 mt-4 !text-paper-50">{title ?? dict.enquiry.title}</h2>
           <p className="mt-4 text-[1.02rem] leading-relaxed text-navy-200">{text ?? dict.enquiry.subtitle}</p>
           <div className={cn("mt-8 flex flex-col gap-3 sm:flex-row", !href && "lg:flex-col lg:items-start")}>
+            <CallButton phone={settings.phonePrimary} variant="gold" />
             {href ? (
-              <EnquireLink href={href} className="btn-gold">
+              <EnquireLink href={href} className="btn-outline-light">
                 <MessageSquareText className="h-4 w-4" aria-hidden="true" />
                 {dict.common.enquireNow}
               </EnquireLink>
             ) : null}
-            <CallButton phone={settings.phonePrimary} variant={href ? "outline-light" : "gold"} />
             <WhatsAppButton phone={wa} label={dict.common.whatsapp} text={fill(dict.enquiry.whatsappPrefill, { subject: subject.label })} variant="outline-light" />
           </div>
         </div>

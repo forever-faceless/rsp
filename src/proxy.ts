@@ -4,6 +4,9 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/session-token";
 
 const ONE_YEAR = 60 * 60 * 24 * 365;
 
+/** Language codes people type by mistake in a shared link, mostly "ka" for Kannada (its code is kn). */
+const LOCALE_ALIASES: Record<string, Locale> = { ka: "kn", kan: "kn", kannada: "kn", eng: "en", english: "en" };
+
 /**
  * True when a person is opening a page, as opposed to the router fetching data or prefetching a
  * link that happens to be on screen. Next strips its own router headers before the proxy runs,
@@ -42,7 +45,17 @@ export async function proxy(request: NextRequest) {
   }
 
   // ----- Public site: every page lives under /en or /kn -----
-  const first = pathname.split("/")[1] ?? "";
+  const parts = pathname.split("/");
+  const first = parts[1] ?? "";
+  const second = (parts[2] ?? "").toLowerCase();
+  const alias = LOCALE_ALIASES[first.toLowerCase()];
+  // /ka/properties/... and /en/ka/properties/... both mean the Kannada page.
+  const doubled = isLocale(first) && (isLocale(second) ? second : LOCALE_ALIASES[second]);
+  if (alias || doubled) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/${alias ?? doubled}/${parts.slice(alias ? 2 : 3).join("/")}`.replace(/\/$/, "");
+    return NextResponse.redirect(url, 308);
+  }
   if (isLocale(first)) {
     const response = NextResponse.next();
     // Remember the language only when the visitor actually opened a page in it. The link to the

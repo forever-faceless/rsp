@@ -20,8 +20,13 @@ if (trackingAllowed()) {
         maskTextSelector: "[data-private]",
       },
       before_send: (event) => {
-        const url = event?.properties?.$current_url;
-        return typeof url === "string" && /^https?:\/\/[^/]+\/admin(\/|$|\?)/.test(url) ? null : event;
+        if (!event) return null;
+        const url = event.properties?.$current_url;
+        if (typeof url === "string" && /^https?:\/\/[^/]+\/admin(\/|$|\?)/.test(url)) return null;
+        // Instagram's and Facebook's in-app browsers throw this from their own bridge to the app,
+        // over and over; it says nothing about the site and would bury its real errors.
+        if (event.event === "$exception" && /Java object is gone/.test(JSON.stringify(event.properties?.$exception_list ?? event.properties?.$exception_message ?? ""))) return null;
+        return event;
       },
     });
 

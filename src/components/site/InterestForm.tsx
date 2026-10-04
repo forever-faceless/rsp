@@ -323,6 +323,26 @@ export function InterestForm({ locale, t, e, whatsappLabel, subject, phone, what
         </label>
       </div>
 
+      {phone ? (
+        <div data-call-first>
+          <a href={telHref(phone)} className="btn-primary btn-lg w-full">
+            <Phone className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {/* Only the number is set in the figures' type; the words around it stay in the text face. */}
+            <span>
+              {t.callNow.split("{phone}")[0]}
+              <span className="num whitespace-nowrap">{formatPhoneDisplay(phone)}</span>
+              {t.callNow.split("{phone}")[1]}
+            </span>
+          </a>
+          <p className="mt-2 text-center text-[13px] text-ink-500">{t.callText}</p>
+          {/* Letter spacing would pull Kannada's joined letters apart, so it is for English only. */}
+          <p className={cn("mt-5 flex items-center gap-3 text-[12px] font-semibold text-ink-400", locale === "en" && "uppercase tracking-[0.18em]")} aria-hidden="true">
+            <span className="h-px flex-1 bg-navy-900/12" />
+            {t.or}
+            <span className="h-px flex-1 bg-navy-900/12" />
+          </p>
+        </div>
+      ) : null}
       <div>
         <h3 className="text-[1.2rem] leading-snug">{t.detailsTitle}</h3>
         <p className="mt-1 text-[14px] text-ink-600">{t.detailsText}</p>

@@ -217,14 +217,17 @@ export async function ListingView({ locale, rawRef, interest = false, from = "" 
                   {d.negotiable ? dict.common.negotiable : ""}
                 </p>
               ) : null}
-              <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                <EnquireLink href={interestHref} className="btn-primary">
-                  <MessageSquareText className="h-4 w-4" aria-hidden="true" />
-                  {dict.common.enquireNow}
-                </EnquireLink>
-                <WhatsAppButton phone={wa} label={dict.common.whatsapp} text={waText} variant="outline" />
+              {/* A call first, since talking is what closes a sale; then the enquiry card, then WhatsApp. */}
+              <div className="mt-5 grid gap-2" data-price-actions>
+                <CallButton phone={settings.phonePrimary} label={dict.common.callNow} className="w-full" />
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                  <EnquireLink href={interestHref} className="btn-outline">
+                    <MessageSquareText className="h-4 w-4" aria-hidden="true" />
+                    {dict.common.enquireNow}
+                  </EnquireLink>
+                  <WhatsAppButton phone={wa} label={dict.common.whatsapp} text={waText} variant="outline" />
+                </div>
               </div>
-              <CallButton phone={settings.phonePrimary} variant="ghost" className="mt-2 w-full !justify-start" />
             </div>
           </div>
         </div>

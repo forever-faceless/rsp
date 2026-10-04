@@ -152,6 +152,7 @@ export function EnquireOverlay({ interestPath, listingPath, closeLabel, landingD
   const backdrop = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
   const drag = useRef<{ y: number; dy: number } | null>(null);
+  const scroller = useRef<HTMLDivElement>(null);
 
   const close = useCallback(() => {
     if (leaving.current) return;
@@ -179,6 +180,64 @@ export function EnquireOverlay({ interestPath, listingPath, closeLabel, landingD
     const timer = window.setTimeout(() => setReady(true), wait);
     return () => window.clearTimeout(timer);
   }, [open, ready, delay]);
+
+  // On a phone, pulling the sheet down from its top closes it, as a bottom sheet does: visitors
+  // tried it on the card itself, not only on the handle. Fields keep their own gestures.
+  useEffect(() => {
+    const area = scroller.current;
+    if (!open || !area) return;
+    let startX = 0;
+    let startY = 0;
+    let dy = 0;
+    let tracking = false;
+    let pulling = false;
+    const onStart = (ev: TouchEvent) => {
+      const target = ev.target instanceof Element ? ev.target : null;
+      tracking = ev.touches.length === 1 && area.scrollTop <= 0 && window.matchMedia("(max-width: 639px)").matches && !target?.closest("input, textarea, select");
+      pulling = false;
+      dy = 0;
+      startX = ev.touches[0]?.clientX ?? 0;
+      startY = ev.touches[0]?.clientY ?? 0;
+    };
+    const onMove = (ev: TouchEvent) => {
+      const el = sheet.current;
+      if (!tracking || !el) return;
+      const x = (ev.touches[0]?.clientX ?? startX) - startX;
+      const y = (ev.touches[0]?.clientY ?? startY) - startY;
+      if (!pulling) {
+        if (y > 10 && y > Math.abs(x) * 1.5 && area.scrollTop <= 0) {
+          pulling = true;
+          el.style.transition = "none";
+        } else {
+          if (Math.abs(x) > 10 || Math.abs(y) > 10) tracking = false;
+          return;
+        }
+      }
+      ev.preventDefault();
+      dy = Math.max(0, y - 10);
+      el.style.transform = `translateY(${dy}px)`;
+    };
+    const onEnd = () => {
+      const el = sheet.current;
+      const was = pulling;
+      tracking = false;
+      pulling = false;
+      if (!was || !el) return;
+      if (dy > DISMISS_PX) return close();
+      el.style.transition = "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)";
+      el.style.transform = "";
+    };
+    area.addEventListener("touchstart", onStart, { passive: true });
+    area.addEventListener("touchmove", onMove, { passive: false });
+    area.addEventListener("touchend", onEnd);
+    area.addEventListener("touchcancel", onEnd);
+    return () => {
+      area.removeEventListener("touchstart", onStart);
+      area.removeEventListener("touchmove", onMove);
+      area.removeEventListener("touchend", onEnd);
+      area.removeEventListener("touchcancel", onEnd);
+    };
+  }, [open, close]);
 
   useEffect(() => {
     if (!open) return;
@@ -254,7 +313,9 @@ export function EnquireOverlay({ interestPath, listingPath, closeLabel, landingD
             >
               <X className="h-5 w-5" aria-hidden="true" />
             </a>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain lg:grid lg:grid-cols-[1.15fr_0.85fr]">{children}</div>
+            <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto overscroll-contain lg:grid lg:grid-cols-[1.15fr_0.85fr]" data-interest-scroll>
+              {children}
+            </div>
           </div>
         </div>
       </div>
