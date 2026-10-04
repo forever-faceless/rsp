@@ -294,7 +294,7 @@ export default async function ProjectPage({ params }: PageProps<"/[locale]/proje
                   base={hasPlots ? "satellite" : "map"}
                   fit="focus"
                   maxFitZoom={hasPlots ? 19 : 16}
-                  labels={{ map: dict.common.map, satellite: dict.common.satellite, interact: dict.common.useMap }}
+                  labels={{ map: dict.common.map, satellite: dict.common.satellite, interact: dict.common.useMap, close: dict.common.closeMap, expand: dict.common.fullScreen }}
                 />
               </div>
               {distances.length ? (

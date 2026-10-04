@@ -153,7 +153,7 @@ export default async function PropertiesPage({ params, searchParams }: PageProps
           <p className="card mt-6 p-10 text-center text-ink-600">{dict.listings.empty}</p>
         ) : view === "map" ? (
           <div className="card mt-6 h-[68vh] min-h-[420px] overflow-hidden">
-            <MapLoader pins={pins} fit="all" maxFitZoom={16} labels={{ map: dict.common.map, satellite: dict.common.satellite, interact: dict.common.useMap }} />
+            <MapLoader pins={pins} fit="all" maxFitZoom={16} labels={{ map: dict.common.map, satellite: dict.common.satellite, interact: dict.common.useMap, close: dict.common.closeMap, expand: dict.common.fullScreen }} />
           </div>
         ) : (
           <>

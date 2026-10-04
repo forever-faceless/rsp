@@ -157,7 +157,7 @@ export default async function AboutPage({ params }: PageProps<"/[locale]/about">
             </div>
             {office ? (
               <div className="h-[340px] bg-paper-0 lg:h-auto lg:min-h-[380px]">
-                <MapLoader pins={[{ id: "office", lat: office.lat, lng: office.lng, label: name, sub: address, kind: "main" }]} labels={{ map: dict.common.map, satellite: dict.common.satellite, interact: dict.common.useMap }} />
+                <MapLoader pins={[{ id: "office", lat: office.lat, lng: office.lng, label: name, sub: address, kind: "main" }]} labels={{ map: dict.common.map, satellite: dict.common.satellite, interact: dict.common.useMap, close: dict.common.closeMap, expand: dict.common.fullScreen }} />
               </div>
             ) : null}
           </Reveal>

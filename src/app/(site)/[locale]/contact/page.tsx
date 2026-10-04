@@ -128,7 +128,7 @@ export default async function ContactPage({ params }: PageProps<"/[locale]/conta
             </div>
           </Reveal>
           <Reveal className="card mt-8 h-[380px] overflow-hidden sm:h-[460px]">
-            <MapLoader pins={[{ id: "office", lat: office.lat, lng: office.lng, label: name, sub: address, kind: "main" }]} labels={{ map: dict.common.map, satellite: dict.common.satellite, interact: dict.common.useMap }} />
+            <MapLoader pins={[{ id: "office", lat: office.lat, lng: office.lng, label: name, sub: address, kind: "main" }]} labels={{ map: dict.common.map, satellite: dict.common.satellite, interact: dict.common.useMap, close: dict.common.closeMap, expand: dict.common.fullScreen }} />
           </Reveal>
         </section>
       ) : null}

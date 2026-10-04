@@ -517,6 +517,14 @@ html.motion [data-hero-hide]:not([data-revealed]) {
   background: var(--color-paper-200);
   z-index: 0;
 }
+/* Tiles overlap by a pixel, so no hairline shows between them on phone screens of any density.
+   Leaflet's own blending would brighten the overlap into a line of its own, so it is set back
+   (firmly, since Leaflet's stylesheet loads after this one). */
+.leaflet-container img.leaflet-tile {
+  width: 257px !important;
+  height: 257px !important;
+  mix-blend-mode: normal !important;
+}
 .leaflet-popup-content-wrapper {
   border-radius: 4px;
   box-shadow: var(--shadow-lift);

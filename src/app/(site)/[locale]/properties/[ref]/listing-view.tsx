@@ -343,8 +343,8 @@ export async function ListingView({ locale, rawRef, interest = false, from = "" 
                   lines={lines}
                   base={surveyed ? "satellite" : "map"}
                   fit="focus"
-                  maxFitZoom={surveyed ? 21 : 16}
-                  labels={{ map: dict.common.map, satellite: dict.common.satellite, interact: dict.common.useMap }}
+                  maxFitZoom={surveyed ? 19 : 16}
+                  labels={{ map: dict.common.map, satellite: dict.common.satellite, interact: dict.common.useMap, close: dict.common.closeMap, expand: dict.common.fullScreen }}
                 />
               </div>
               {hasNearby ? (

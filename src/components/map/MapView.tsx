@@ -2,11 +2,12 @@
 
 import "leaflet/dist/leaflet.css";
 import type * as Leaflet from "leaflet";
-import { Hand } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Maximize2, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { LatLng, ListingStatus } from "@/lib/db/enums";
 import { centroid, midpoint } from "@/lib/geo";
-import { MAX_ZOOM, SATELLITE_TILES, STREET_TILES } from "@/lib/tiles";
+import { SATELLITE_TILES, STREET_TILES } from "@/lib/tiles";
 import { cn } from "@/lib/utils";
 
 export type MapPin = {
@@ -47,10 +48,13 @@ export type MapViewProps = {
   lines?: MapLine[];
   base?: "map" | "satellite";
   toggle?: boolean;
-  labels: { map: string; satellite: string; interact: string };
+  /** `interact` invites a phone visitor to open the map; `close` and `expand` name the full-screen buttons. */
+  labels: { map: string; satellite: string; interact: string; close?: string; expand?: string };
   /** What the opening view frames. Landmarks can be far away, so "focus" leaves them out. */
   fit?: "focus" | "all";
   maxFitZoom?: number;
+  /** How far in a visitor can zoom. Past the imagery's own detail the picture only gets softer. */
+  maxZoom?: number;
   className?: string;
 };
 
@@ -98,30 +102,53 @@ function popupHtml(title: string, sub?: string, href?: string, linkText?: string
   );
 }
 
-export default function MapView({ pins = [], plots = [], lines = [], base = "map", toggle = true, labels, fit = "focus", maxFitZoom = 19, className }: MapViewProps) {
+export default function MapView({ pins = [], plots = [], lines = [], base = "map", toggle = true, labels, fit = "focus", maxFitZoom = 19, maxZoom = 20, className }: MapViewProps) {
+  // The map's place on the page, and its place in the full-screen view.
   const holder = useRef<HTMLDivElement | null>(null);
+  const fullSlot = useRef<HTMLDivElement | null>(null);
+  const cover = useRef<HTMLButtonElement | null>(null);
+  // Leaflet lives in an element of its own, outside React's, so it can move between the two
+  // without being rebuilt: the view, the tiles already loaded and any open label all come along.
+  const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Leaflet.Map | null>(null);
   const leafletRef = useRef<typeof Leaflet | null>(null);
   const tilesRef = useRef<Leaflet.TileLayer | null>(null);
   const featuresRef = useRef<Leaflet.LayerGroup | null>(null);
   const fittedRef = useRef("");
+  const pushed = useRef(false);
   const [layer, setLayer] = useState<"map" | "satellite">(base);
   const [ready, setReady] = useState(false);
-  const [locked, setLocked] = useState(false);
+  // A phone scrolls past the map on the page; one tap opens it full screen, where one finger
+  // moves it and two fingers pinch, as in a maps app. A mouse uses the map where it stands.
+  const [touch, setTouch] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   // Create the map once.
   useEffect(() => {
     let cancelled = false;
     let map: Leaflet.Map | null = null;
+    const el = document.createElement("div");
+    el.className = "h-full w-full";
+    holder.current?.appendChild(el);
+    mapEl.current = el;
     (async () => {
       const L = (await import("leaflet")).default;
-      if (cancelled || !holder.current) return;
+      if (cancelled) return;
       const coarse = window.matchMedia("(pointer: coarse)").matches;
-      map = L.map(holder.current, {
-        zoomControl: true,
+      map = L.map(el, {
+        // Phones pinch and double-tap instead of pressing buttons.
+        zoomControl: !coarse,
         scrollWheelZoom: false,
-        maxZoom: MAX_ZOOM,
-        zoomSnap: 0.5,
+        maxZoom,
+        // Zoom settles wherever the fingers or the wheel leave it, rather than jumping to a step.
+        zoomSnap: 0,
+        zoomDelta: 1,
+        wheelPxPerZoomLevel: 90,
+        bounceAtZoomLimits: false,
+        dragging: !coarse,
+        touchZoom: !coarse,
+        doubleClickZoom: !coarse,
+        boxZoom: false,
         attributionControl: true,
       });
       map.attributionControl.setPrefix(false);
@@ -132,7 +159,6 @@ export default function MapView({ pins = [], plots = [], lines = [], base = "map
       // The wheel zooms the map towards the pointer, once the pointer has come to rest on it or
       // the map has been clicked. While the page is being scrolled the wheel keeps turning, so
       // the map lets the page go by instead of swallowing the scroll.
-      const el = holder.current;
       let rest: ReturnType<typeof setTimeout> | null = null;
       const arm = () => {
         if (rest) clearTimeout(rest);
@@ -146,22 +172,30 @@ export default function MapView({ pins = [], plots = [], lines = [], base = "map
         rest = null;
         map?.scrollWheelZoom.disable();
       });
-
-      // On a phone a full-width map swallows the scroll gesture, so it waits for a tap first.
-      if (coarse) setLocked(true);
+      // The current zoom, readable from the page for checks.
+      map.on("zoomend", () => {
+        if (map) el.dataset.zoom = map.getZoom().toFixed(2);
+      });
+      setTouch(coarse);
       setReady(true);
     })();
     return () => {
       cancelled = true;
       map?.remove();
+      el.remove();
+      mapEl.current = null;
       mapRef.current = null;
       featuresRef.current = null;
       tilesRef.current = null;
       fittedRef.current = "";
     };
+    // maxZoom is fixed for the life of a map.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Base imagery.
+  // Base imagery. Tiles keep loading while the map is dragged, a wider ring of them is held
+  // ready around the view, and none are fetched halfway through a pinch, which is what made
+  // moving the map feel sticky on a phone.
   useEffect(() => {
     const L = leafletRef.current;
     const map = mapRef.current;
@@ -171,11 +205,14 @@ export default function MapView({ pins = [], plots = [], lines = [], base = "map
     tilesRef.current = L.tileLayer(source.url, {
       attribution: source.attribution,
       maxNativeZoom: source.maxNativeZoom,
-      maxZoom: MAX_ZOOM,
+      maxZoom,
       subdomains: source.subdomains ?? "abc",
+      updateWhenIdle: false,
+      updateWhenZooming: false,
+      keepBuffer: 4,
     }).addTo(map);
     tilesRef.current.bringToBack();
-  }, [layer, ready]);
+  }, [layer, ready, maxZoom]);
 
   const pinsKey = JSON.stringify(pins);
   const plotsKey = JSON.stringify(plots);
@@ -289,8 +326,10 @@ export default function MapView({ pins = [], plots = [], lines = [], base = "map
     if (fitKey !== fittedRef.current) {
       fittedRef.current = fitKey;
       const target = fit === "all" || !focus.length ? everything : focus;
-      if (target.length === 1) map.setView(target[0], Math.min(maxFitZoom, 17));
-      else if (target.length > 1) map.fitBounds(L.latLngBounds(target), { padding: [56, 56], maxZoom: maxFitZoom, animate: false });
+      // A phone opens a little further out, so the plot is seen with the roads around it.
+      const cap = window.innerWidth < 640 ? Math.min(maxFitZoom, 18) : maxFitZoom;
+      if (target.length === 1) map.setView(target[0], Math.min(cap, 17));
+      else if (target.length > 1) map.fitBounds(L.latLngBounds(target), { padding: [56, 56], maxZoom: cap, animate: false });
     }
 
     // A length is only printed when its line is long enough on screen to carry it.
@@ -324,61 +363,146 @@ export default function MapView({ pins = [], plots = [], lines = [], base = "map
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pinsKey, plotsKey, linesKey, layer, ready, fit, maxFitZoom]);
 
-  // Keep the map sized to its box, and lock it again once it scrolls out of view on a phone.
+  // Keep the map sized to whichever box it is in.
   useEffect(() => {
-    const el = holder.current;
+    const el = mapEl.current;
     const map = mapRef.current;
     if (!ready || !el || !map) return;
-    const resize = new ResizeObserver(() => map.invalidateSize());
+    const resize = new ResizeObserver(() => map.invalidateSize({ animate: false }));
     resize.observe(el);
-    const coarse = window.matchMedia("(pointer: coarse)").matches;
-    const watch = new IntersectionObserver(([entry]) => {
-      if (coarse && !entry.isIntersecting) setLocked(true);
-    });
-    watch.observe(el);
-    return () => {
-      resize.disconnect();
-      watch.disconnect();
-    };
+    return () => resize.disconnect();
   }, [ready]);
 
-  return (
-    <div className={cn("relative isolate h-full w-full overflow-hidden bg-paper-200", className)}>
-      {/* The lock sits on a wrapper: Leaflet writes its own classes onto the map's element, and a class that changes there would wipe them. */}
-      <div className={cn("h-full w-full", locked && "pointer-events-none")}>
-        <div ref={holder} className="h-full w-full" />
+  // Where the map is, and what it answers to: on a phone's page it only shows the place; full
+  // screen, or under a mouse, it moves, pinches and zooms.
+  useEffect(() => {
+    const map = mapRef.current;
+    const el = mapEl.current;
+    if (!ready || !map || !el) return;
+    const slot = expanded ? fullSlot.current : holder.current;
+    if (slot && el.parentElement !== slot) {
+      slot.appendChild(el);
+      map.invalidateSize({ animate: false });
+    }
+    const live = expanded || !touch;
+    for (const handler of [map.dragging, map.touchZoom, map.doubleClickZoom]) {
+      if (live) handler.enable();
+      else handler.disable();
+    }
+  }, [expanded, touch, ready]);
+
+  // Full screen is a step in the visit's history, so the phone's back button closes it.
+  const open = useCallback(() => {
+    if (expanded) return;
+    window.history.pushState(null, "", window.location.href);
+    pushed.current = true;
+    setExpanded(true);
+  }, [expanded]);
+  const close = useCallback(() => {
+    if (pushed.current) {
+      pushed.current = false;
+      window.history.back();
+    } else setExpanded(false);
+  }, []);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const root = document.documentElement;
+    const before = root.style.overflow;
+    root.style.overflow = "hidden";
+    const onPop = () => {
+      pushed.current = false;
+      setExpanded(false);
+    };
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") close();
+    };
+    window.addEventListener("popstate", onPop);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      root.style.overflow = before;
+      window.removeEventListener("popstate", onPop);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [expanded, close]);
+
+  // Two fingers on the map on the page mean the visitor wants the map, not a bigger page.
+  useEffect(() => {
+    const btn = cover.current;
+    if (!btn) return;
+    const onTouch = (ev: TouchEvent) => {
+      if (ev.touches.length < 2) return;
+      ev.preventDefault();
+      open();
+    };
+    btn.addEventListener("touchstart", onTouch, { passive: false });
+    return () => btn.removeEventListener("touchstart", onTouch);
+  }, [open, touch, ready, expanded]);
+
+  const layerToggle = (place: string) =>
+    toggle && ready ? (
+      <div className={cn("absolute z-[1001] flex overflow-hidden rounded-[3px] border border-navy-900/20 bg-paper-0 text-[12px] font-semibold shadow-card", place)}>
+        {(["map", "satellite"] as const).map((key) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setLayer(key)}
+            aria-pressed={layer === key}
+            className={cn("px-3 py-2 transition-colors", layer === key ? "bg-navy-900 text-gold-200" : "text-navy-800 hover:bg-navy-50")}
+          >
+            {labels[key]}
+          </button>
+        ))}
       </div>
+    ) : null;
+
+  return (
+    <div className={cn("relative isolate h-full w-full overflow-hidden bg-paper-200", className)} data-map>
+      <div ref={holder} className="h-full w-full" />
       {!ready ? <div className="absolute inset-0 animate-pulse bg-paper-200" aria-hidden="true" /> : null}
 
-      {toggle && ready ? (
-        <div className="absolute right-2.5 top-2.5 z-[500] flex overflow-hidden rounded-[3px] border border-navy-900/20 bg-paper-0 text-[12px] font-semibold shadow-card">
-          {(["map", "satellite"] as const).map((key) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setLayer(key)}
-              aria-pressed={layer === key}
-              className={cn("px-3 py-2 transition-colors", layer === key ? "bg-navy-900 text-gold-200" : "text-navy-800 hover:bg-navy-50")}
-            >
-              {labels[key]}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      {expanded ? null : layerToggle("right-2.5 top-2.5")}
 
-      {locked && ready ? (
-        <button
-          type="button"
-          onClick={() => setLocked(false)}
-          className="absolute inset-0 z-[400] flex items-end justify-center bg-transparent pb-4"
-          aria-label={labels.interact}
-        >
-          <span className="inline-flex items-center gap-2 rounded-[3px] bg-navy-900/90 px-3.5 py-2 text-[12.5px] font-semibold text-paper-0">
-            <Hand className="h-4 w-4 text-gold-300" aria-hidden="true" />
+      {ready && touch && !expanded ? (
+        // On a phone the whole map is one button that opens it; the page scrolls past it as usual.
+        <button ref={cover} type="button" onClick={open} className="absolute inset-0 z-[1000] flex items-end justify-center bg-transparent pb-4" aria-label={labels.interact} data-map-open>
+          <span className="inline-flex items-center gap-2 rounded-[3px] bg-navy-900/90 px-3.5 py-2 text-[12.5px] font-semibold text-paper-0 shadow-card">
+            <Maximize2 className="h-4 w-4 text-gold-300" aria-hidden="true" />
             {labels.interact}
           </span>
         </button>
       ) : null}
+      {ready && !touch && !expanded ? (
+        <button
+          type="button"
+          onClick={open}
+          aria-label={labels.expand ?? labels.interact}
+          title={labels.expand ?? labels.interact}
+          className="absolute bottom-7 right-2.5 z-[1001] inline-flex h-9 w-9 items-center justify-center rounded-[3px] border border-navy-900/20 bg-paper-0 text-navy-800 shadow-card hover:bg-navy-50"
+          data-map-open
+        >
+          <Maximize2 className="h-4 w-4" aria-hidden="true" />
+        </button>
+      ) : null}
+
+      {expanded
+        ? createPortal(
+            <div className="fixed inset-0 z-[90] bg-paper-200" role="dialog" aria-modal="true" aria-label={labels.map} data-map-full>
+              <div ref={fullSlot} className="absolute inset-0" />
+              {layerToggle("right-[4.25rem] top-[max(0.75rem,env(safe-area-inset-top))]")}
+              <button
+                type="button"
+                onClick={close}
+                aria-label={labels.close ?? "Close"}
+                className="absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[1001] inline-flex h-11 w-11 items-center justify-center rounded-[3px] border border-navy-900/20 bg-paper-0 text-navy-900 shadow-card"
+                data-map-close
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
