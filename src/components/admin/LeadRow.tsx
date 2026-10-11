@@ -21,6 +21,11 @@ const purposeLabel = { self_use: "Own use", investment: "Investment", other: "Ot
 
 export function LeadRow({ lead, compact = false, company }: { lead: LeadWithRefs; compact?: boolean; company: string }) {
   const selling = lead.kind === "sell";
+  // What a customer wrote stays as they wrote it. What the office wrote about a lead it added
+  // itself is its own note, so it is shown once, in the box where it can be changed.
+  const byOffice = lead.source.startsWith("office:");
+  const theirWords = byOffice ? "" : lead.message;
+  const notes = byOffice ? [lead.message, lead.notes].filter(Boolean).join("\n") : lead.notes;
   const subject = [lead.ref, lead.subject].filter(Boolean).join(" · ");
   const hello = lead.name ? `Namaskara ${lead.name}` : "Namaskara";
   const waText = selling
@@ -53,7 +58,11 @@ export function LeadRow({ lead, compact = false, company }: { lead: LeadWithRefs
             <p className="mt-1 text-[12.5px] font-medium text-danger-700">They typed their number on the quick enquiry card but did not press send. Worth a call.</p>
           ) : null}
           {leadSourceLabel(lead.source) ? <p className="mt-1 text-[12.5px] text-ink-500">{leadSourceLabel(lead.source)}</p> : null}
-          {lead.message ? <p className="mt-2 whitespace-pre-line rounded-[3px] bg-paper-100 px-3 py-2 text-[14px] text-ink-700">{lead.message}</p> : null}
+          {theirWords ? (
+            <p className="mt-2 whitespace-pre-line rounded-[3px] bg-paper-100 px-3 py-2 text-[14px] text-ink-700" data-lead-message>
+              {theirWords}
+            </p>
+          ) : null}
           <div className="mt-3 flex flex-wrap gap-2">
             <a href={telHref(lead.phone)} className="btn-primary btn-sm">
               <Phone className="h-3.5 w-3.5" aria-hidden="true" /> <span className="num">{formatPhoneDisplay(lead.phone)}</span>
@@ -87,7 +96,7 @@ export function LeadRow({ lead, compact = false, company }: { lead: LeadWithRefs
                 </option>
               ))}
             </select>
-            <textarea name="notes" defaultValue={lead.notes} rows={2} placeholder="Follow-up notes" className="field text-[14px]" aria-label="Notes" />
+            <textarea name="notes" defaultValue={notes} rows={byOffice ? 3 : 2} maxLength={2000} placeholder={byOffice ? "Notes" : "Follow-up notes"} className="field text-[14px]" aria-label="Notes" />
             <div className="flex items-center justify-between gap-2">
               <SubmitButton className="btn-sm">Save</SubmitButton>
               <ConfirmButton action={deleteLead.bind(null, lead.id)} />
@@ -95,7 +104,7 @@ export function LeadRow({ lead, compact = false, company }: { lead: LeadWithRefs
           </form>
         ) : null}
       </div>
-      {compact && lead.notes ? <p className="mt-3 text-xs text-ink-500">Notes: {lead.notes}</p> : null}
+      {compact && notes ? <p className="mt-3 whitespace-pre-line text-xs text-ink-500">Notes: {notes}</p> : null}
     </article>
   );
 }

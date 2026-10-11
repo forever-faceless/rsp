@@ -113,14 +113,15 @@ export function LeadForm({ action, subjects, budgets, timelines }: Props) {
       ) : null}
 
       <Textarea
-        label={buying ? "What they said" : "About their property"}
-        name="message"
-        maxLength={1500}
+        label="Notes"
+        name="notes"
+        maxLength={2000}
         rows={3}
-        placeholder={buying ? "What they asked, what they are looking for" : "Where it is, the size, the price they expect"}
+        placeholder={buying ? "What they are looking for, when to call back" : "Where it is, the size, the price they expect, when to call back"}
+        hint="You can add to these later on the Leads page."
       />
 
-      <div className="grid gap-4 md:grid-cols-[14rem_1fr]">
+      <div className="md:max-w-[14rem]">
         <Select
           label="Status"
           name="status"
@@ -132,7 +133,6 @@ export function LeadForm({ action, subjects, budgets, timelines }: Props) {
             { value: "closed", label: "Closed" },
           ]}
         />
-        <Input label="Follow-up notes" name="notes" maxLength={2000} autoComplete="off" placeholder="Call back on Saturday, sent to the advocate" />
       </div>
 
       <FormStatus state={state} />

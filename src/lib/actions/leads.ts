@@ -1,6 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
@@ -73,7 +73,7 @@ export async function addLead(_prev: ActionState, formData: FormData): Promise<A
       purpose: kind === "buy" && (LEAD_PURPOSE_ANSWERS as readonly string[]).includes(purpose) ? (purpose as LeadPurposeAnswer) : "",
       budget: kind === "buy" ? get("budget").slice(0, 60) : "",
       timeline: kind === "buy" ? get("timeline").slice(0, 60) : "",
-      message: get("message").slice(0, 1500),
+      // What the office writes about a lead is one note, kept where it can be changed later.
       notes: get("notes").slice(0, 2000),
       status: LEAD_STATUSES.includes(status as LeadStatus) ? (status as LeadStatus) : "new",
       locale: get("locale") === "kn" ? "kn" : "en",
@@ -93,6 +93,9 @@ export async function updateLeadNotes(id: number, formData: FormData): Promise<v
     .update(leads)
     .set({
       notes,
+      // An older lead added by the office kept its first note apart; the Leads page shows the two
+      // as one, so once saved they are one.
+      message: sql`case when ${leads.source} like 'office:%' then '' else ${leads.message} end`,
       ...(LEAD_STATUSES.includes(statusRaw as LeadStatus) ? { status: statusRaw as LeadStatus } : {}),
     })
     .where(eq(leads.id, id));
