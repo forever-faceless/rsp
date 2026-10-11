@@ -18,7 +18,7 @@ export class IgError extends Error {
 
 type Query = Record<string, string | number | undefined>;
 
-async function call<T>(token: string, path: string, opts: { method?: "GET" | "POST"; query?: Query; body?: unknown } = {}): Promise<T> {
+async function call<T>(token: string, path: string, opts: { method?: "GET" | "POST"; query?: Query; body?: unknown; timeout?: number } = {}): Promise<T> {
   const url = new URL(`${base()}${path}`);
   for (const [k, v] of Object.entries(opts.query ?? {})) if (v !== undefined) url.searchParams.set(k, String(v));
   let res: Response;
@@ -28,7 +28,7 @@ async function call<T>(token: string, path: string, opts: { method?: "GET" | "PO
       headers: { Authorization: `Bearer ${token}`, ...(opts.body ? { "Content-Type": "application/json" } : {}) },
       body: opts.body ? JSON.stringify(opts.body) : undefined,
       cache: "no-store",
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(opts.timeout ?? 10_000),
     });
   } catch (error) {
     throw new IgError(error instanceof Error ? error.message : "Instagram could not be reached", 0);
@@ -85,6 +85,38 @@ export type ApiComment = { id: string; text?: string; username?: string; timesta
 /** Comments on one post or reel, newest first. */
 export function listComments(token: string, mediaId: string, limit = 50) {
   return call<{ data?: ApiComment[] }>(token, `/${mediaId}/comments`, { query: { fields: "id,text,username,timestamp,from,parent_id", limit } });
+}
+
+// ---------------------------------------------------------------- putting up a post
+
+/**
+ * Step one of posting: Instagram fetches the file from its address and prepares it in a
+ * "container". A photo must be a JPEG; a reel an MP4 or MOV. The file has to be reachable
+ * by anyone, which the blob store's addresses are.
+ */
+export function createContainer(token: string, post: { kind: "reel" | "photo"; url: string; caption: string }) {
+  const body = post.kind === "reel" ? { media_type: "REELS", video_url: post.url, caption: post.caption, share_to_feed: true } : { image_url: post.url, caption: post.caption };
+  return call<{ id?: string }>(token, "/me/media", { method: "POST", body, timeout: 30_000 });
+}
+
+/** How far Instagram has got with a container: IN_PROGRESS, FINISHED, PUBLISHED, ERROR or EXPIRED. */
+export function containerStatus(token: string, containerId: string) {
+  return call<{ status_code?: string; status?: string }>(token, `/${containerId}`, { query: { fields: "status_code,status" } });
+}
+
+/** Step two: the prepared container goes up on the account. A container can go up only once. */
+export function publishContainer(token: string, containerId: string) {
+  return call<{ id?: string }>(token, "/me/media_publish", { method: "POST", body: { creation_id: containerId }, timeout: 30_000 });
+}
+
+/** One post or reel of the account, for its address once it is up. */
+export function getMedia(token: string, mediaId: string) {
+  return call<ApiMedia>(token, `/${mediaId}`, { query: { fields: "id,caption,media_type,media_product_type,permalink,thumbnail_url,timestamp" } });
+}
+
+/** How many posts the account has put up through the site today. Only answers when the site is allowed to post. */
+export function publishingLimit(token: string) {
+  return call<{ data?: { quota_usage?: number }[] }>(token, "/me/content_publishing_limit", { query: { fields: "quota_usage" } });
 }
 
 /** Trades a long-lived token for a fresh one. Good for 60 days; refresh well before that. */

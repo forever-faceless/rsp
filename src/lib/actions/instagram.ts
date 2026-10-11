@@ -136,7 +136,8 @@ export async function checkInstagram(): Promise<ActionState> {
   await requireAdmin();
   const result = await checkConnection();
   refresh();
-  return result.ok ? { success: `Connected to @${result.username}.` } : { error: result.error };
+  if (!result.ok) return { error: result.error };
+  return { success: `Connected to @${result.username}. ${result.posting ? `Instagram has not confirmed that the site may post for you: ${result.posting}` : "The site may post for you."}` };
 }
 
 export async function syncReels(): Promise<ActionState> {

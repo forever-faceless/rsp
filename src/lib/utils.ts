@@ -107,6 +107,19 @@ export function formatDateTime(date: Date): string {
   }).format(date);
 }
 
+/** A moment as a date-and-time box shows it, in Indian time: "2026-10-12T18:30". */
+export function istInputValue(date: Date): string {
+  const shifted = new Date(date.getTime() + 5.5 * 60 * 60 * 1000);
+  return shifted.toISOString().slice(0, 16);
+}
+
+/** The moment a date-and-time box means. The office types Indian time wherever the server runs. */
+export function parseIstInput(value: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}:00+05:30`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 export function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
 }

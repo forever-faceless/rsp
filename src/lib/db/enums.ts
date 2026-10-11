@@ -75,6 +75,18 @@ export type IgMessageKind = (typeof IG_MESSAGE_KINDS)[number];
 export const IG_SENDERS = ["them", "auto", "office", "app"] as const;
 export type IgSender = (typeof IG_SENDERS)[number];
 
+/** What a scheduled Instagram post is: a reel (a video) or a single photo. */
+export const IG_POST_KINDS = ["reel", "photo"] as const;
+export type IgPostKind = (typeof IG_POST_KINDS)[number];
+
+/**
+ * Where a scheduled post stands. scheduled: waiting for its time. processing: Instagram is
+ * preparing the file. publishing: being put up this moment. published: it is on Instagram.
+ * failed: it did not go out, and says why.
+ */
+export const IG_POST_STATUSES = ["scheduled", "processing", "publishing", "published", "failed"] as const;
+export type IgPostStatus = (typeof IG_POST_STATUSES)[number];
+
 /** Bilingual free-text item used in JSON columns (amenities, features). */
 export type BilingualItem = { en: string; kn: string };
 export type Approval = { en: string; kn: string; number: string };

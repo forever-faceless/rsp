@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import type { Approval, BilingualItem, SurveyCorner, SurveyMeasure, SurveyPoint, VideoItem } from "./enums";
-import { AREA_UNITS, FACINGS, IG_MESSAGE_KINDS, IG_SENDERS, IG_STATES, IG_TOPICS, LANDMARK_CATEGORIES, LEAD_KINDS, LEAD_PURPOSE_ANSWERS, LEAD_STATUSES, LISTING_SOURCES, LISTING_STATUSES, PRICE_DISPLAYS, PROJECT_STATUSES, PROPERTY_TYPES } from "./enums";
+import { AREA_UNITS, FACINGS, IG_MESSAGE_KINDS, IG_POST_KINDS, IG_POST_STATUSES, IG_SENDERS, IG_STATES, IG_TOPICS, LANDMARK_CATEGORIES, LEAD_KINDS, LEAD_PURPOSE_ANSWERS, LEAD_STATUSES, LISTING_SOURCES, LISTING_STATUSES, PRICE_DISPLAYS, PROJECT_STATUSES, PROPERTY_TYPES } from "./enums";
 
 export * from "./enums";
 
@@ -488,7 +488,37 @@ export const igSettings = sqliteTable("ig_settings", {
   igUserId: text("ig_user_id").notNull().default(""),
   igUsername: text("ig_username").notNull().default(""),
   lastWebhookAt: integer("last_webhook_at", { mode: "timestamp" }),
+  /** When the minute-by-minute check last ran. Scheduled posts only go out while it is running. */
+  lastCronAt: integer("last_cron_at", { mode: "timestamp" }),
   lastError: text("last_error").notNull().default(""),
+  ...timestamps,
+});
+
+/** A reel or photo the office has lined up to go out on Instagram at a set time. */
+export const igPosts = sqliteTable("ig_posts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  kind: text("kind", { enum: IG_POST_KINDS }).notNull(),
+  /** Where the file is kept until it has gone out. Emptied once it is on Instagram. */
+  fileUrl: text("file_url").notNull().default(""),
+  caption: text("caption").notNull().default(""),
+  scheduledAt: integer("scheduled_at", { mode: "timestamp" }).notNull(),
+  status: text("status", { enum: IG_POST_STATUSES }).notNull().default("scheduled"),
+  /** The listing it is about. Once posted, the reel is tied to it, so comments and shares get its details. */
+  ref: text("ref").notNull().default(""),
+  projectId: integer("project_id").references(() => projects.id, { onDelete: "set null" }),
+  siteId: integer("site_id").references(() => sites.id, { onDelete: "set null" }),
+  propertyId: integer("property_id").references(() => properties.id, { onDelete: "set null" }),
+  /** Instagram prepares a post in a container first, then publishes that container. */
+  containerId: text("container_id").notNull().default(""),
+  startedAt: integer("started_at", { mode: "timestamp" }),
+  /** How many times sending has been tried, so a post that keeps failing is given up on. */
+  tries: integer("tries").notNull().default(0),
+  /** The id and the address Instagram gives it once it is up. */
+  mediaId: text("media_id").notNull().default(""),
+  permalink: text("permalink").notNull().default(""),
+  publishedAt: integer("published_at", { mode: "timestamp" }),
+  /** Why it did not go out, in words for the office. */
+  error: text("error").notNull().default(""),
   ...timestamps,
 });
 
@@ -496,6 +526,7 @@ export type IgThread = typeof igThreads.$inferSelect;
 export type IgMessage = typeof igMessages.$inferSelect;
 export type IgMediaRow = typeof igMedia.$inferSelect;
 export type IgSettings = typeof igSettings.$inferSelect;
+export type IgPost = typeof igPosts.$inferSelect;
 
 export type Settings = typeof settings.$inferSelect;
 export type Region = typeof regions.$inferSelect;

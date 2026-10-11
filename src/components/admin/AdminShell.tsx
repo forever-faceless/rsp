@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, ExternalLink, FolderKanban, Inbox, LayoutDashboard, LogOut, MapPinned, Menu, MessageSquareText, Quote, Settings, Handshake, Users, X, type LucideIcon } from "lucide-react";
+import { Building2, CalendarClock, ExternalLink, FolderKanban, Inbox, LayoutDashboard, LogOut, MapPinned, Menu, MessageSquareText, Quote, Settings, Handshake, Users, X, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -17,6 +17,7 @@ const nav: Item[] = [
   { href: "/admin/projects", label: "Projects and sites", short: "Projects", icon: FolderKanban },
   { href: "/admin/surveys", label: "Field surveys", short: "Survey", icon: MapPinned },
   { href: "/admin/inbox", label: "Inbox", short: "Inbox", icon: Inbox },
+  { href: "/admin/posts", label: "Posts", short: "Posts", icon: CalendarClock },
   { href: "/admin/leads", label: "Leads", short: "Leads", icon: MessageSquareText },
   { href: "/admin/brokers", label: "Brokers", short: "Brokers", icon: Handshake },
   { href: "/admin/testimonials", label: "Testimonials", short: "Testimonials", icon: Quote },

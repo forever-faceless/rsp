@@ -91,6 +91,39 @@ export async function saveImage(file: File, folder: string): Promise<string> {
   return `${UPLOAD_ROUTE_PREFIX}${dir}/${id}.webp`;
 }
 
+/**
+ * Stores a photo that is going out on Instagram. Instagram takes JPEG only, so unlike the
+ * site's own pictures it is not turned into WebP. Returns its size too, for the shape check.
+ */
+export async function saveJpeg(file: File, folder: string): Promise<{ url: string; width: number; height: number }> {
+  assertStorageConfigured();
+  if (!file || file.size === 0) throw new UploadError("Empty file.");
+  if (file.size > MAX_IMAGE_BYTES) throw new UploadError("Image is larger than 15 MB.");
+  if (file.type && !IMAGE_TYPES.has(file.type)) throw new UploadError(`Unsupported image type: ${file.type}`);
+
+  let output: { data: Buffer; info: { width: number; height: number } };
+  try {
+    output = await sharp(Buffer.from(await file.arrayBuffer()), { failOn: "none" })
+      .rotate()
+      .resize({ width: 1440, height: 1800, fit: "inside", withoutEnlargement: true })
+      .flatten({ background: "#ffffff" })
+      .jpeg({ quality: 90 })
+      .toBuffer({ resolveWithObject: true });
+  } catch {
+    throw new UploadError("Could not read the image. Please upload a JPG or PNG file.");
+  }
+
+  const name = `${crypto.randomUUID()}.jpg`;
+  const dir = safeFolder(folder);
+  const size = { width: output.info.width, height: output.info.height };
+  if (blobEnabled()) return { url: await putBlob(blobPath(dir, name), output.data, "image/jpeg"), ...size };
+
+  const target = path.join(/*turbopackIgnore: true*/ uploadDir(), dir);
+  await fs.mkdir(target, { recursive: true });
+  await fs.writeFile(path.join(/*turbopackIgnore: true*/ target, name), output.data);
+  return { url: `${UPLOAD_ROUTE_PREFIX}${dir}/${name}`, ...size };
+}
+
 /** Stores a PDF brochure. */
 export async function saveDocument(file: File, folder: string): Promise<string> {
   assertStorageConfigured();

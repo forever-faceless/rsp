@@ -1,13 +1,13 @@
 import "server-only";
 import { listRegions } from "@/lib/db/queries";
 import type { IgSettings } from "@/lib/db/schema";
-import { getMe, listComments, listMedia, refreshToken, type ApiMedia } from "./api";
+import { getMe, listComments, listMedia, publishingLimit, refreshToken, type ApiMedia } from "./api";
 import { handleComment, subjectFor } from "./process";
 import { getIgSettings, listIgMedia, saveIgSettings, tokenOf, updateMedia, upsertMedia } from "./store";
 import { findRefs } from "./understand";
 
-/** Checks the token against Instagram and remembers whose account it is. */
-export async function checkConnection(): Promise<{ ok: boolean; username?: string; error?: string }> {
+/** Checks the token against Instagram, remembers whose account it is, and asks whether the site may post for it. */
+export async function checkConnection(): Promise<{ ok: boolean; username?: string; error?: string; posting?: string }> {
   const settings = await getIgSettings();
   const token = tokenOf(settings);
   if (!token) return { ok: false, error: "No access token yet. Add IG_ACCESS_TOKEN in Vercel, then redeploy." };
@@ -21,7 +21,12 @@ export async function checkConnection(): Promise<{ ok: boolean; username?: strin
       tokenExpiresAt: settings.tokenExpiresAt ?? new Date(Date.now() + 50 * 24 * 60 * 60 * 1000),
       lastError: "",
     });
-    return { ok: true, username: me.username };
+    // Posting needs its own permission; asking for today's count is a harmless way to find out.
+    const posting = await publishingLimit(token).then(
+      () => "",
+      (error: unknown) => (error instanceof Error ? error.message : "no answer"),
+    );
+    return { ok: true, username: me.username, posting };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Instagram did not answer." };
   }
