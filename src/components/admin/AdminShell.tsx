@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, ExternalLink, FolderKanban, LayoutDashboard, LogOut, MapPinned, Menu, MessageSquareText, Quote, Settings, Handshake, Users, X, type LucideIcon } from "lucide-react";
+import { Building2, ExternalLink, FolderKanban, Inbox, LayoutDashboard, LogOut, MapPinned, Menu, MessageSquareText, Quote, Settings, Handshake, Users, X, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -16,6 +16,7 @@ const nav: Item[] = [
   { href: "/admin/properties", label: "Properties", short: "Properties", icon: Building2 },
   { href: "/admin/projects", label: "Projects and sites", short: "Projects", icon: FolderKanban },
   { href: "/admin/surveys", label: "Field surveys", short: "Survey", icon: MapPinned },
+  { href: "/admin/inbox", label: "Inbox", short: "Inbox", icon: Inbox },
   { href: "/admin/leads", label: "Leads", short: "Leads", icon: MessageSquareText },
   { href: "/admin/brokers", label: "Brokers", short: "Brokers", icon: Handshake },
   { href: "/admin/testimonials", label: "Testimonials", short: "Testimonials", icon: Quote },
@@ -23,10 +24,13 @@ const nav: Item[] = [
   { href: "/admin/settings", label: "Company settings", short: "Settings", icon: Settings },
 ];
 
-/** The five destinations that matter on a phone, with the survey tool in the middle. */
-const tabs = ["/admin", "/admin/properties", "/admin/surveys", "/admin/leads"];
+/** The destinations that matter on a phone: the survey tool in the middle, the Instagram inbox and the leads beside it. */
+const tabs = ["/admin", "/admin/properties", "/admin/surveys", "/admin/inbox", "/admin/leads"];
+/** Sections that open from another one and light up its menu entry. */
+const under: Record<string, string[]> = { "/admin/inbox": ["/admin/instagram"] };
 
-export function AdminShell({ user, newLeads, children }: { user: string; newLeads: number; children: React.ReactNode }) {
+export function AdminShell({ user, newLeads, inboxWaiting = 0, children }: { user: string; newLeads: number; inboxWaiting?: number; children: React.ReactNode }) {
+  const badges: Record<string, number> = { "/admin/leads": newLeads, "/admin/inbox": inboxWaiting };
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [lastPath, setLastPath] = useState(pathname);
@@ -39,7 +43,7 @@ export function AdminShell({ user, newLeads, children }: { user: string; newLead
   // A browser signed in here is the office's: its visits to the public site are not counted.
   useEffect(() => markStaffBrowser(), []);
 
-  const isActive = (item: Item) => (item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`));
+  const isActive = (item: Item) => (item.exact ? pathname === item.href : [item.href, ...(under[item.href] ?? [])].some((base) => pathname === base || pathname.startsWith(`${base}/`)));
   // The survey tool is a full-screen workspace, so the page chrome steps out of its way.
   const workspace = /^\/admin\/surveys\/\d+(\/reel)?$/.test(pathname);
 
@@ -59,7 +63,7 @@ export function AdminShell({ user, newLeads, children }: { user: string; newLead
           >
             <item.icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
             <span className="flex-1">{item.label}</span>
-            {item.href === "/admin/leads" && newLeads > 0 ? <span className="num rounded-[2px] bg-gold-400 px-1.5 py-0.5 text-[11px] font-semibold text-navy-950">{newLeads}</span> : null}
+            {badges[item.href] > 0 ? <span className="num rounded-[2px] bg-gold-400 px-1.5 py-0.5 text-[11px] font-semibold text-navy-950">{badges[item.href]}</span> : null}
           </Link>
         );
       })}
@@ -114,7 +118,7 @@ export function AdminShell({ user, newLeads, children }: { user: string; newLead
 
         {/* Thumb-reach navigation on a phone. */}
         <nav
-          className={cn("fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-navy-900/15 bg-paper-0 pb-[env(safe-area-inset-bottom)] lg:hidden", workspace && "hidden")}
+          className={cn("fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-navy-900/15 bg-paper-0 pb-[env(safe-area-inset-bottom)] lg:hidden", workspace && "hidden")}
           aria-label="Quick navigation"
         >
           {nav
@@ -133,8 +137,8 @@ export function AdminShell({ user, newLeads, children }: { user: string; newLead
                     <item.icon className="h-[19px] w-[19px]" aria-hidden="true" />
                   </span>
                   {item.short}
-                  {item.href === "/admin/leads" && newLeads > 0 ? (
-                    <span className="num absolute right-[22%] top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-gold-400 px-1 text-[10px] font-semibold text-navy-950">{newLeads}</span>
+                  {badges[item.href] > 0 ? (
+                    <span className="num absolute right-[14%] top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-gold-400 px-1 text-[10px] font-semibold text-navy-950">{badges[item.href]}</span>
                   ) : null}
                   {active ? <span className="absolute inset-x-5 top-0 h-[2px] bg-gold-500" aria-hidden="true" /> : null}
                 </Link>

@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import type { Approval, BilingualItem, SurveyCorner, SurveyMeasure, SurveyPoint, VideoItem } from "./enums";
-import { AREA_UNITS, FACINGS, LANDMARK_CATEGORIES, LEAD_KINDS, LEAD_PURPOSE_ANSWERS, LEAD_STATUSES, LISTING_SOURCES, LISTING_STATUSES, PRICE_DISPLAYS, PROJECT_STATUSES, PROPERTY_TYPES } from "./enums";
+import { AREA_UNITS, FACINGS, IG_MESSAGE_KINDS, IG_SENDERS, IG_STATES, IG_TOPICS, LANDMARK_CATEGORIES, LEAD_KINDS, LEAD_PURPOSE_ANSWERS, LEAD_STATUSES, LISTING_SOURCES, LISTING_STATUSES, PRICE_DISPLAYS, PROJECT_STATUSES, PROPERTY_TYPES } from "./enums";
 
 export * from "./enums";
 
@@ -376,6 +376,125 @@ export const leads = sqliteTable("leads", {
     .notNull()
     .default(sql`(unixepoch())`),
 }, (t) => [uniqueIndex("leads_draft_key_unique").on(t.draftKey).where(sql`draft_key <> ''`)]);
+
+// ---------------------------------------------------------------- Instagram desk
+
+/** One conversation with one Instagram account, whether it began as a DM or a comment. */
+export const igThreads = sqliteTable(
+  "ig_threads",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    /** Instagram's id for this person, as given to this account. */
+    igUserId: text("ig_user_id").notNull(),
+    username: text("username").notNull().default(""),
+    name: text("name").notNull().default(""),
+    state: text("state", { enum: IG_STATES }).notNull().default("needs_you"),
+    topic: text("topic", { enum: IG_TOPICS }).notNull().default("other"),
+    /** The property they are asking about, once a reel or a number has said so. */
+    ref: text("ref").notNull().default(""),
+    projectId: integer("project_id").references(() => projects.id, { onDelete: "set null" }),
+    siteId: integer("site_id").references(() => sites.id, { onDelete: "set null" }),
+    propertyId: integer("property_id").references(() => properties.id, { onDelete: "set null" }),
+    /** The lead made when they sent a phone number. */
+    leadId: integer("lead_id").references(() => leads.id, { onDelete: "set null" }),
+    phone: text("phone").notNull().default(""),
+    /** True once the office has taken the conversation over: the automation stays out of it. */
+    autoPaused: integer("auto_paused", { mode: "boolean" }).notNull().default(false),
+    unread: integer("unread").notNull().default(0),
+    /** When they last wrote. Instagram allows a reply for 24 hours after this. */
+    lastInboundAt: integer("last_inbound_at", { mode: "timestamp" }),
+    lastMessageAt: integer("last_message_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    lastText: text("last_text").notNull().default(""),
+    notes: text("notes").notNull().default(""),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [uniqueIndex("ig_threads_user_unique").on(t.igUserId)],
+);
+
+export const igMessages = sqliteTable(
+  "ig_messages",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    threadId: integer("thread_id")
+      .notNull()
+      .references(() => igThreads.id, { onDelete: "cascade" }),
+    direction: text("direction", { enum: ["in", "out"] }).notNull(),
+    kind: text("kind", { enum: IG_MESSAGE_KINDS }).notNull().default("text"),
+    sender: text("sender", { enum: IG_SENDERS }).notNull().default("them"),
+    text: text("text").notNull().default(""),
+    /** Instagram's id for the message or comment; a second delivery of the same one is ignored. */
+    mid: text("mid").notNull().default(""),
+    /** The reel or post concerned: shared in the DM, or commented on. */
+    mediaId: text("media_id").notNull().default(""),
+    mediaUrl: text("media_url").notNull().default(""),
+    mediaTitle: text("media_title").notNull().default(""),
+    /** Why sending failed, when it did. */
+    failed: text("failed").notNull().default(""),
+    /** What Instagram sent, kept for a while to learn its shapes. Never shown in public. */
+    raw: text("raw").notNull().default(""),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [uniqueIndex("ig_messages_mid_unique").on(t.mid).where(sql`mid <> ''`)],
+);
+
+/** A reel or post, and the listing it is about. Filled from the account's own posts and from reels shared in DMs. */
+export const igMedia = sqliteTable(
+  "ig_media",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    mediaId: text("media_id").notNull(),
+    kind: text("kind").notNull().default("reel"),
+    caption: text("caption").notNull().default(""),
+    permalink: text("permalink").notNull().default(""),
+    thumbnail: text("thumbnail").notNull().default(""),
+    postedAt: integer("posted_at", { mode: "timestamp" }),
+    ref: text("ref").notNull().default(""),
+    projectId: integer("project_id").references(() => projects.id, { onDelete: "set null" }),
+    siteId: integer("site_id").references(() => sites.id, { onDelete: "set null" }),
+    propertyId: integer("property_id").references(() => properties.id, { onDelete: "set null" }),
+    /** Comments counted last time, so only reels with new comments are looked at again. */
+    commentsCount: integer("comments_count").notNull().default(0),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("ig_media_media_unique").on(t.mediaId)],
+);
+
+/** One row: the switches, the wording of the automatic replies, and the connection to Instagram. */
+export const igSettings = sqliteTable("ig_settings", {
+  id: integer("id").primaryKey(),
+  /** Automatic replies to DMs. Off until the office turns it on, so it never answers beside another tool. */
+  dmAuto: integer("dm_auto", { mode: "boolean" }).notNull().default(false),
+  /** Automatic replies to comments: a public line and the details by DM. */
+  commentAuto: integer("comment_auto", { mode: "boolean" }).notNull().default(false),
+  /** Answer every comment on a known reel, not only those with one of the words below. */
+  commentAll: integer("comment_all", { mode: "boolean" }).notNull().default(false),
+  commentWords: text("comment_words").notNull().default(""),
+  /** When comment replies were last switched on. Comments older than this are left alone. */
+  commentSince: integer("comment_since", { mode: "timestamp" }),
+  /** Language of the listing link sent in replies. */
+  linkLocale: text("link_locale", { enum: ["en", "kn"] }).notNull().default("kn"),
+  /** The replies' wording. Blank means the built-in text. */
+  templates: text("templates", { mode: "json" }).$type<Record<string, string>>().notNull().default({}),
+  /** The connection. The token is only ever read on the server. */
+  accessToken: text("access_token").notNull().default(""),
+  tokenExpiresAt: integer("token_expires_at", { mode: "timestamp" }),
+  igUserId: text("ig_user_id").notNull().default(""),
+  igUsername: text("ig_username").notNull().default(""),
+  lastWebhookAt: integer("last_webhook_at", { mode: "timestamp" }),
+  lastError: text("last_error").notNull().default(""),
+  ...timestamps,
+});
+
+export type IgThread = typeof igThreads.$inferSelect;
+export type IgMessage = typeof igMessages.$inferSelect;
+export type IgMediaRow = typeof igMedia.$inferSelect;
+export type IgSettings = typeof igSettings.$inferSelect;
 
 export type Settings = typeof settings.$inferSelect;
 export type Region = typeof regions.$inferSelect;

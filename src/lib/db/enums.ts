@@ -56,6 +56,25 @@ export type LeadPurpose = (typeof LEAD_PURPOSES)[number];
 export const LEAD_PURPOSE_ANSWERS = ["", ...LEAD_PURPOSES] as const;
 export type LeadPurposeAnswer = (typeof LEAD_PURPOSE_ANSWERS)[number];
 
+/**
+ * Where an Instagram conversation stands for the office.
+ * needs_you: the automation could not answer, or it is switched off. auto: answered
+ * automatically, nothing to do. replied: the office answered and is waiting on them.
+ */
+export const IG_STATES = ["needs_you", "auto", "replied", "closed", "spam"] as const;
+export type IgState = (typeof IG_STATES)[number];
+
+/** What an Instagram conversation is about, as far as it can be told. */
+export const IG_TOPICS = ["reel", "property", "price", "location", "visit", "sell", "number", "greeting", "other"] as const;
+export type IgTopic = (typeof IG_TOPICS)[number];
+
+export const IG_MESSAGE_KINDS = ["text", "reel", "post", "story", "comment", "media", "other"] as const;
+export type IgMessageKind = (typeof IG_MESSAGE_KINDS)[number];
+
+/** Who wrote a message: the visitor, the automation, the office from this site, or the Instagram app (or another tool). */
+export const IG_SENDERS = ["them", "auto", "office", "app"] as const;
+export type IgSender = (typeof IG_SENDERS)[number];
+
 /** Bilingual free-text item used in JSON columns (amenities, features). */
 export type BilingualItem = { en: string; kn: string };
 export type Approval = { en: string; kn: string; number: string };

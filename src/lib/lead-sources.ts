@@ -15,6 +15,12 @@ export function isLeadChannel(value: string): value is LeadChannel {
   return LEAD_CHANNELS.some(([key]) => key === value);
 }
 
+/** The Inbox page of the Instagram conversation a lead came from, when it came from one. */
+export function leadThreadHref(source: string): string | null {
+  const m = /^instagram:(\d+)$/.exec(source);
+  return m ? `/admin/inbox/${m[1]}` : null;
+}
+
 /** Where a lead came from, in a few words for the office. Blank for an ordinary website form. */
 export function leadSourceLabel(source: string): string {
   const office = /^office:([a-z_]+)$/.exec(source);
@@ -22,6 +28,7 @@ export function leadSourceLabel(source: string): string {
     const channel = LEAD_CHANNELS.find(([key]) => key === office[1]);
     return `Added by the office: ${channel ? channel[1] : "Other"}`;
   }
+  if (source.startsWith("instagram:")) return "From an Instagram conversation";
   if (source.includes("/interest")) {
     const from = /[?&]from=([a-z0-9_-]+)/i.exec(source);
     return `Through the quick enquiry link${from ? `, shared on ${from[1]}` : ""}`;

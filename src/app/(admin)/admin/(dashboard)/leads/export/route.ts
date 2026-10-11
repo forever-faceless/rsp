@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
   const header = ["Received", "Kind", "Status", "Sent", "Name", "Phone", "Email", "Property number", "About", "Purpose", "Budget", "Timeline", "Message", "Notes", "Language", "Came through", "Page", "Visit recording"];
   const rows = leads.map((l) =>
-    [formatDateTime(l.createdAt), l.kind === "sell" ? "Seller" : "Buyer", l.status, l.sent ? "Yes" : "No, number typed only", l.name, l.phone, l.email, l.ref, l.subject, l.purpose, l.budget, l.timeline, l.message, l.notes, l.locale, leadSourceLabel(l.source) || "Website form", l.source.startsWith("office:") ? "" : l.source, l.sessionId ? replayUrl(l.sessionId) : ""].map(cell).join(","),
+    [formatDateTime(l.createdAt), l.kind === "sell" ? "Seller" : "Buyer", l.status, l.sent ? "Yes" : "No, number typed only", l.name, l.phone, l.email, l.ref, l.subject, l.purpose, l.budget, l.timeline, l.message, l.notes, l.locale, leadSourceLabel(l.source) || "Website form", l.source.startsWith("office:") || l.source.startsWith("instagram:") ? "" : l.source, l.sessionId ? replayUrl(l.sessionId) : ""].map(cell).join(","),
   );
   // The byte order mark makes Excel read the file as UTF-8, which the rupee sign and Kannada need.
   const csv = `﻿${header.map(cell).join(",")}\r\n${rows.join("\r\n")}\r\n`;
