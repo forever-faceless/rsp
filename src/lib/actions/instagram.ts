@@ -122,7 +122,6 @@ export async function saveInstagramSettings(_prev: ActionState, formData: FormDa
   await saveIgSettings({
     dmAuto: formData.get("dmAuto") === "on",
     commentAuto,
-    commentAll: formData.get("commentAll") === "on",
     commentWords: String(formData.get("commentWords") ?? "").slice(0, 1000),
     linkLocale: formData.get("linkLocale") === "en" ? "en" : "kn",
     templates,

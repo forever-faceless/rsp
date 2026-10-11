@@ -472,8 +472,9 @@ export const igSettings = sqliteTable("ig_settings", {
   dmAuto: integer("dm_auto", { mode: "boolean" }).notNull().default(false),
   /** Automatic replies to comments: a public line and the details by DM. */
   commentAuto: integer("comment_auto", { mode: "boolean" }).notNull().default(false),
-  /** Answer every comment on a known reel, not only those with one of the words below. */
+  /** No longer read: every comment on a reel tied to a property is answered unless words are given below. */
   commentAll: integer("comment_all", { mode: "boolean" }).notNull().default(false),
+  /** The office's own words that a comment must carry to be answered. Empty for no such limit. */
   commentWords: text("comment_words").notNull().default(""),
   /** When comment replies were last switched on. Comments older than this are left alone. */
   commentSince: integer("comment_since", { mode: "timestamp" }),

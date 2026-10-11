@@ -13,12 +13,12 @@ export const TEMPLATE_INFO: Record<TemplateKey, { label: string; when: string; f
   },
   askWhich: {
     label: "Which property?",
-    when: "Sent when someone says hello or asks for details and it is not yet known which property they mean.",
+    when: "Sent when someone says hello or asks a question and it is not yet known which property they mean.",
     fields: "{example} {listLink} {phone}",
   },
-  price: { label: "Price", when: "Sent when they ask the price of the property being discussed.", fields: "{ref} {price} {link} {phone}" },
-  location: { label: "Location", when: "Sent when they ask where the property is.", fields: "{ref} {location} {mapLink} {link}" },
-  visit: { label: "Site visit", when: "Sent when they ask to see the property.", fields: "{ref} {phone}" },
+  price: { label: "Price", when: "Not sent by itself. A ready-made reply in the Inbox for when they ask the price.", fields: "{ref} {price} {link} {phone}" },
+  location: { label: "Location", when: "Not sent by itself. A ready-made reply in the Inbox for when they ask where the property is.", fields: "{ref} {location} {mapLink} {link}" },
+  visit: { label: "Site visit", when: "Not sent by itself. A ready-made reply in the Inbox for when they ask to see the property.", fields: "{ref} {phone}" },
   sell: { label: "Wants to sell", when: "Sent when they say they want to sell a property.", fields: "{sellLink} {phone}" },
   number: { label: "Number received", when: "Sent when they give a mobile number. The number is saved as a lead at the same moment.", fields: "{number} {phone}" },
   holding: {

@@ -336,18 +336,13 @@ async function handleMessage(event: MessagingEvent, settings: IgSettings, accoun
     } else if (said === "sell") {
       // Answered, and still shown to the office: an owner who wants to sell is worth a call.
       reply = await compose("sell", settings, null);
-    } else if (said === "price" || said === "location" || said === "visit") {
-      const usable = known && (said !== "location" || known.location);
-      reply = usable ? await compose(said, settings, known) : await compose("askWhich", settings, null);
-      state = "auto";
-    } else if (said === "property") {
-      reply = known ? await compose("property", settings, known) : await compose("askWhich", settings, null);
-      state = "auto";
-    } else if (said === "greeting") {
+    } else if (said !== "other" && !known) {
+      // A hello or a question before any property is known: ask which one they mean.
       reply = await compose("askWhich", settings, null);
       state = "auto";
     }
-    // Handed over: tell them once that a person will answer, not on every further message.
+    // Anything else is the office's, and so is whatever they ask once they have a property's
+    // details. Handed over: tell them once that a person will answer, not on every message.
     if (reply === null && thread.state !== "needs_you") reply = (await compose("holding", settings, known)) || null;
   }
   // Once a conversation is waiting for the office it stays there until the office has dealt
@@ -374,13 +369,15 @@ export async function handleComment(value: CommentValue, settings: IgSettings): 
   const mid = `comment:${commentId}`;
   if (await messageExists(mid)) return;
 
-  const words = splitWords(settings.commentWords || DEFAULT_COMMENT_WORDS);
-  if (!settings.commentAll && !commentAsks(text, words)) return;
   const token = tokenOf(settings);
   if (!token) return;
 
   const media = value.media?.id ? await findMedia([value.media.id]) : null;
   const subject = media?.ref ? await subjectFor(media.ref, settings) : null;
+  // Every comment on a reel tied to a property is answered, unless the office has narrowed it
+  // to its own words. On a reel about no one property only a comment that asks is answered.
+  const own = splitWords(settings.commentWords);
+  if (own.length ? !commentAsks(text, own) : !subject && !commentAsks(text, splitWords(DEFAULT_COMMENT_WORDS))) return;
   const byId = await findThread(from.id);
   const thread = byId ?? (await findThreadByUsername(from.username ?? "")) ?? (await createThread({ igUserId: from.id, username: from.username }));
   const stored = await addMessage({ threadId: thread.id, direction: "in", kind: "comment", sender: "them", text, mid, mediaId: value.media?.id ?? "", mediaTitle: media?.caption.slice(0, 200) ?? "", raw: JSON.stringify(value) });

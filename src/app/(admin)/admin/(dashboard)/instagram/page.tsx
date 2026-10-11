@@ -4,7 +4,6 @@ import { EmptyState, PageHeader, Section, SubmitButton } from "@/components/admi
 import { checkInstagram, saveInstagramSettings, syncReels, tieMedia } from "@/lib/actions/instagram";
 import { listSurveyTargets } from "@/lib/db/queries";
 import { getIgSettings, listIgMedia, tokenOf, webhookConfigured } from "@/lib/instagram/store";
-import { DEFAULT_COMMENT_WORDS } from "@/lib/instagram/understand";
 import { formatRef } from "@/lib/refs";
 import { siteUrl } from "@/lib/site-url";
 import { cn, formatDate, formatDateTime } from "@/lib/utils";
@@ -71,11 +70,10 @@ export default async function InstagramPage() {
           </div>
         </Section>
 
-        <Section title="Automatic replies" description="Both are off until you switch them on. What the automation cannot answer always comes to you in the Inbox.">
+        <Section title="Automatic replies" description="Tick the two boxes and press Save. Whatever the automation does not answer comes to you in the Inbox.">
           <InstagramSettingsForm
             action={saveInstagramSettings}
-            defaultWords={DEFAULT_COMMENT_WORDS}
-            values={{ dmAuto: settings.dmAuto, commentAuto: settings.commentAuto, commentAll: settings.commentAll, commentWords: settings.commentWords, linkLocale: settings.linkLocale, templates: settings.templates ?? {} }}
+            values={{ dmAuto: settings.dmAuto, commentAuto: settings.commentAuto, commentWords: settings.commentWords, linkLocale: settings.linkLocale, templates: settings.templates ?? {} }}
           />
         </Section>
 
