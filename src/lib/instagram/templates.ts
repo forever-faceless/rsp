@@ -2,14 +2,24 @@
  * The wording of the automatic Instagram replies. Each has a built-in text; the office can
  * replace any of them in the admin. Words in braces are filled in when a reply is sent.
  */
-export const TEMPLATE_KEYS = ["property", "askWhich", "price", "location", "visit", "sell", "number", "holding", "commentPublic"] as const;
+export const TEMPLATE_KEYS = ["interest", "property", "askNumber", "askWhich", "price", "location", "visit", "sell", "number", "holding", "commentPublic"] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
 export const TEMPLATE_INFO: Record<TemplateKey, { label: string; when: string; fields: string }> = {
+  interest: {
+    label: "Interested?",
+    when: "Sent by private message when someone comments on a reel you have tied to a property, with two buttons under it: Yes and Price.",
+    fields: "{ref} {title}",
+  },
   property: {
     label: "Property details",
-    when: "Sent when someone shares a reel you have tied to a property, types a property number, or comments on that reel.",
+    when: "Sent when they press Yes, share a reel you have tied to a property, or type a property number.",
     fields: "{ref} {title} {facts} {location} {link} {phone}",
+  },
+  askNumber: {
+    label: "Asked the price",
+    when: "Sent when they press Price. Instagram also offers them a button that sends their own number.",
+    fields: "{call} {phone} {ref}",
   },
   askWhich: {
     label: "Which property?",
@@ -26,10 +36,16 @@ export const TEMPLATE_INFO: Record<TemplateKey, { label: string; when: string; f
     when: "Sent once when the automation cannot answer and passes the conversation to you, so the person knows a reply is coming.",
     fields: "{phone}",
   },
-  commentPublic: { label: "Public reply to a comment", when: "Posted under the comment, while the details go by private message.", fields: "{username}" },
+  commentPublic: { label: "Public reply to a comment", when: "Posted under the comment, while the private message goes to them.", fields: "{username}" },
 };
 
+/** The two buttons under "Interested?", and the line that stands in for them when Instagram will not show buttons. */
+export const INTEREST_BUTTONS = { yes: "Yes", price: "Price" } as const;
+export const INTEREST_TYPED = "Reply YES for the details, or PRICE.";
+
 export const DEFAULT_TEMPLATES: Record<TemplateKey, string> = {
+  interest: `Interested in {ref}: {title}?`,
+  askNumber: `Please share your number, or call us on {call}.`,
   property: `{ref}: {title}
 {facts}
 {location}
@@ -59,7 +75,7 @@ Or send your mobile number and we will call you.`,
 ಧನ್ಯವಾದಗಳು. ನಾವು ಶೀಘ್ರದಲ್ಲೇ ಕಾಲ್ ಮಾಡುತ್ತೇವೆ.`,
   holding: `Thank you for your message. Our team will reply here shortly. For a quick answer, call {phone}.
 ನಿಮ್ಮ ಮೆಸೇಜ್‌ಗೆ ಧನ್ಯವಾದಗಳು. ನಮ್ಮ ತಂಡ ಶೀಘ್ರದಲ್ಲೇ ಉತ್ತರಿಸುತ್ತದೆ.`,
-  commentPublic: `Sent you the details by message. ವಿವರಗಳನ್ನು ಮೆಸೇಜ್‌ನಲ್ಲಿ ಕಳುಹಿಸಿದ್ದೇವೆ.`,
+  commentPublic: `Sent you a message, please check. ಮೆಸೇಜ್ ಕಳುಹಿಸಿದ್ದೇವೆ, ದಯವಿಟ್ಟು ನೋಡಿ.`,
 };
 
 /** The office's wording when it has written one, the built-in text otherwise. */

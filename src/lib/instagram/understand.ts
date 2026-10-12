@@ -59,6 +59,20 @@ export function topicOf(text: string): IgTopic {
   return "other";
 }
 
+const YES = ["yes", "yess", "yeah", "yep", "ya", "ok", "okay", "sure", "send", "haudu", "howdu", "houdu", "kalisi", "kalsi", "ಹೌದು", "ಹೂ", "ಸರಿ", "ಕಳುಹಿಸಿ", "ಕಳಿಸಿ"];
+const NO = ["no", "not", "dont", "don't", "illa", "beda", "ಇಲ್ಲ", "ಬೇಡ"];
+
+/**
+ * The answer to "Interested in this property?" when it is typed rather than tapped: the
+ * details, the price, or null when it is neither and so for the office to read.
+ */
+export function answerOf(text: string): "details" | "price" | null {
+  const t = text.toLowerCase().trim();
+  if (!t || t.length > 40 || NO.some((w) => has(t, w))) return null;
+  if (WORDS.price.some((w) => has(t, w))) return "price";
+  return [...YES, ...WORDS.property].some((w) => has(t, w)) ? "details" : null;
+}
+
 /** True when a comment on a reel should get the details: any of the office's chosen words, or a number. */
 export function commentAsks(text: string, words: string[]): boolean {
   const t = text.toLowerCase();

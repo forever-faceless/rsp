@@ -106,6 +106,24 @@ export async function findRecentOwn(threadId: number, text: string): Promise<IgM
   return row ?? null;
 }
 
+export async function getMessage(id: number): Promise<IgMessage | null> {
+  const db = await getDb();
+  const [row] = await db.select().from(igMessages).where(eq(igMessages.id, id));
+  return row ?? null;
+}
+
+/** The last message that went out in a conversation, whoever sent it. */
+export async function lastSent(threadId: number): Promise<IgMessage | null> {
+  const db = await getDb();
+  const [row] = await db
+    .select()
+    .from(igMessages)
+    .where(and(eq(igMessages.threadId, threadId), eq(igMessages.direction, "out")))
+    .orderBy(desc(igMessages.id))
+    .limit(1);
+  return row ?? null;
+}
+
 /** How many automatic replies this conversation has had in the last hour, to stop a runaway exchange. */
 export async function recentAutoCount(threadId: number): Promise<number> {
   const db = await getDb();

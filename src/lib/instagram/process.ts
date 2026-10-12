@@ -10,11 +10,11 @@ import { lookupListing } from "@/lib/listing-detail";
 import { priceLine } from "@/lib/pricing";
 import { formatPropertyNo } from "@/lib/refs";
 import { siteUrl } from "@/lib/site-url";
-import { formatArea, formatPhoneDisplay } from "@/lib/utils";
-import { getProfile, IgError, replyToComment, sendPrivateReply, sendText } from "./api";
-import { addMessage, createThread, findMedia, findRecentOwn, findThread, findThreadByUsername, getIgSettings, messageExists, recentAutoCount, saveIgSettings, tokenOf, updateMessage, updateThread } from "./store";
-import { fillTemplate, templateText, type TemplateKey } from "./templates";
-import { commentAsks, DEFAULT_COMMENT_WORDS, findPhone, findRefs, splitWords, topicOf } from "./understand";
+import { formatArea, formatPhoneDisplay, normalisePhone } from "@/lib/utils";
+import { getProfile, IgError, replyToComment, sendPrivateReply, sendText, type QuickReply } from "./api";
+import { addMessage, createThread, findMedia, findRecentOwn, findThread, findThreadByUsername, getIgSettings, getMessage, lastSent, messageExists, recentAutoCount, saveIgSettings, tokenOf, updateMessage, updateThread } from "./store";
+import { fillTemplate, INTEREST_BUTTONS, INTEREST_TYPED, templateText, type TemplateKey } from "./templates";
+import { answerOf, commentAsks, DEFAULT_COMMENT_WORDS, findPhone, findRefs, splitWords, topicOf } from "./understand";
 
 /**
  * What happens when Instagram tells the site about a message or a comment. Everything is
@@ -33,7 +33,7 @@ type MessagingEvent = {
   sender?: { id?: string };
   recipient?: { id?: string };
   timestamp?: number;
-  message?: { mid?: string; text?: string; is_echo?: boolean; is_deleted?: boolean; attachments?: Attachment[]; reply_to?: { story?: { id?: string; url?: string } } };
+  message?: { mid?: string; text?: string; is_echo?: boolean; is_deleted?: boolean; attachments?: Attachment[]; reply_to?: { story?: { id?: string; url?: string } }; quick_reply?: { payload?: string } };
 };
 type CommentValue = {
   id?: string;
@@ -136,6 +136,8 @@ async function compose(key: TemplateKey, settings: IgSettings, subject: Subject 
     link: subject?.link ?? `${base}/properties?from=instagram`,
     mapLink: subject?.mapLink ?? "",
     phone: formatPhoneDisplay(site.phonePrimary),
+    // The bare ten digits: the spelling a phone most reliably turns into a number to tap and call.
+    call: normalisePhone(site.phonePrimary),
     example: `${site.propertyPrefix}-0001`,
     listLink: `${base}/properties?from=instagram`,
     sellLink: `${base}/sell?from=instagram`,
@@ -161,25 +163,54 @@ export async function quickReplies(thread: IgThread, settings: IgSettings): Prom
 
 // ---------------------------------------------------------------- sending
 
+type SendWith = {
+  /** Answers a comment: the one private message Instagram allows for it. */
+  commentId?: string;
+  /** Buttons under the message, and the words to send in its place should Instagram refuse them. */
+  choices?: QuickReply[];
+  plain?: string;
+  /** The property this message asks "interested?" about, kept with it so a typed answer can be placed. */
+  asks?: string;
+};
+
 /**
  * Sends a message and files it. The row is written before Instagram is called, because
  * Instagram echoes every sent message back and the echo must find it already there.
  */
-export async function sendToThread(thread: IgThread, text: string, sender: "auto" | "office", settings: IgSettings, via?: { commentId: string }): Promise<{ ok: boolean; error?: string }> {
+export async function sendToThread(thread: IgThread, text: string, sender: "auto" | "office", settings: IgSettings, via: SendWith = {}): Promise<{ ok: boolean; error?: string }> {
   const token = tokenOf(settings);
-  const row = await addMessage({ threadId: thread.id, direction: "out", kind: "text", sender, text });
+  const row = await addMessage({ threadId: thread.id, direction: "out", kind: "text", sender, text, raw: via.asks ? JSON.stringify({ asks: via.asks }) : "" });
   if (!token) {
     if (row) await updateMessage(row.id, { failed: "Instagram is not connected yet." });
     return { ok: false, error: "Instagram is not connected yet." };
   }
+  const send = (words: string, choices?: QuickReply[]) => (via.commentId ? sendPrivateReply(token, via.commentId, words, choices) : sendText(token, thread.igUserId, words, choices));
+  let words = text;
   try {
-    const sent = via ? await sendPrivateReply(token, via.commentId, text) : await sendText(token, thread.igUserId, text);
+    let sent: Awaited<ReturnType<typeof send>>;
+    try {
+      sent = await send(text, via.choices);
+    } catch (error) {
+      // Instagram answered and said no, so nothing went out, and the buttons may be what it
+      // refused: the message goes once more in plain words. A call that got no answer at all
+      // is never repeated, since the message may have gone.
+      if (!via.choices?.length || !(error instanceof IgError) || error.status < 400 || error.status >= 500) throw error;
+      words = via.plain ?? text;
+      if (row) await updateMessage(row.id, { text: words, raw: JSON.stringify({ ...(via.asks ? { asks: via.asks } : {}), plain: true }) });
+      sent = await send(words);
+    }
     if (row && sent.message_id) await updateMessage(row.id, { mid: sent.message_id }).catch(() => {});
     // A private reply to a comment tells us who the commenter is in DMs, when it was not known.
-    if (via && sent.recipient_id && sent.recipient_id !== thread.igUserId && !(await findThread(sent.recipient_id))) await updateThread(thread.id, { igUserId: sent.recipient_id });
-    await updateThread(thread.id, { lastMessageAt: new Date(), lastText: text.slice(0, 200) });
+    if (via.commentId && sent.recipient_id && sent.recipient_id !== thread.igUserId && !(await findThread(sent.recipient_id))) await updateThread(thread.id, { igUserId: sent.recipient_id });
+    await updateThread(thread.id, { lastMessageAt: new Date(), lastText: words.slice(0, 200) });
     return { ok: true };
   } catch (error) {
+    // No answer in time is not a refusal. When Instagram's echo of the message is already on
+    // file, it went out, and saying otherwise would have the office send it a second time.
+    if (row && error instanceof IgError && error.status === 0 && (await getMessage(row.id))?.mid) {
+      await updateThread(thread.id, { lastMessageAt: new Date(), lastText: words.slice(0, 200) });
+      return { ok: true };
+    }
     const message = error instanceof IgError ? error.message : "Sending failed.";
     if (row) await updateMessage(row.id, { failed: message.slice(0, 300) });
     return { ok: false, error: message };
@@ -261,7 +292,8 @@ async function handleMessage(event: MessagingEvent, settings: IgSettings, accoun
     // Sent from this site a moment ago: only note Instagram's id for it.
     const own = text ? await findRecentOwn(thread.id, text) : null;
     if (own) {
-      if (!own.mid) await updateMessage(own.id, { mid: message.mid }).catch(() => {});
+      // The echo is proof that it arrived, even when the call that sent it got no answer in time.
+      if (!own.mid || own.failed) await updateMessage(own.id, { mid: own.mid || message.mid, failed: "" }).catch(() => {});
       return;
     }
     // Sent from the Instagram app or another tool: someone else has answered, so the automation steps back.
@@ -290,11 +322,21 @@ async function handleMessage(event: MessagingEvent, settings: IgSettings, accoun
   // ----- what is it about
   const phone = findPhone(text);
   const refs = findRefs(text, (await listRegions()).map((r) => r.code));
+  // Their answer to "Interested in this property?": a tap on Yes or Price, or the same typed
+  // while that question is still the last thing said to them.
+  const tapped = /^(details|price):(.+)$/.exec(message.quick_reply?.payload ?? "");
+  let choice: { want: "details" | "price"; ref: string } | null = tapped ? { want: tapped[1] as "details" | "price", ref: tapped[2] } : null;
+  if (!choice && what.kind === "text" && !phone && !refs.length) {
+    const asked = askedIn(await lastSent(thread.id));
+    const want = asked ? answerOf(text) : null;
+    if (want) choice = { want, ref: asked };
+  }
   let subject: Subject | null = null;
   if (what.kind === "reel" || what.kind === "post") subject = media?.ref ? await subjectFor(media.ref, settings) : null;
   if (!subject && refs.length) subject = await subjectFor(refs[0], settings);
+  if (!subject && choice) subject = await subjectFor(choice.ref, settings);
   const said = topicOf(text);
-  const topic: IgTopic = what.kind === "reel" || what.kind === "post" ? "reel" : phone ? "number" : refs.length ? "property" : what.kind === "text" ? said : "other";
+  const topic: IgTopic = what.kind === "reel" || what.kind === "post" ? "reel" : phone ? "number" : refs.length ? "property" : choice ? (choice.want === "price" ? "price" : "property") : what.kind === "text" ? said : "other";
   const known = subject ?? (thread.ref ? await subjectFor(thread.ref, settings) : null);
 
   const patch: Partial<IgThread> = {
@@ -316,6 +358,7 @@ async function handleMessage(event: MessagingEvent, settings: IgSettings, accoun
   // ----- answer, or hand over
   const automatic = settings.dmAuto && !thread.autoPaused && thread.state !== "spam" && Boolean(tokenOf(settings)) && (await recentAutoCount(thread.id)) < AUTO_LIMIT;
   let reply: string | null = null;
+  let offer: QuickReply[] | undefined;
   let state: IgState = "needs_you";
   if (automatic) {
     if (phone) {
@@ -328,6 +371,14 @@ async function handleMessage(event: MessagingEvent, settings: IgSettings, accoun
       }
     } else if (what.kind !== "text") {
       // A story reply, a photo, a voice note: for a person to read.
+    } else if (choice?.want === "price") {
+      // The office gives the price on a call: ask for their number, with Instagram's own button for sending it.
+      reply = await compose("askNumber", settings, known);
+      offer = [{ phone: true }];
+      state = "auto";
+    } else if (choice && subject) {
+      reply = await compose("property", settings, subject);
+      state = "auto";
     } else if (refs.length) {
       if (subject) {
         reply = await compose("property", settings, subject);
@@ -352,8 +403,19 @@ async function handleMessage(event: MessagingEvent, settings: IgSettings, accoun
 
   await updateThread(thread.id, { ...patch, state });
   if (reply) {
-    const sent = await sendToThread({ ...now, state }, reply, "auto", settings);
+    const sent = await sendToThread({ ...now, state }, reply, "auto", settings, { choices: offer });
     if (!sent.ok) await updateThread(thread.id, { state: "needs_you" });
+  }
+}
+
+/** The property a sent message asked "interested?" about, or "" when it asked no such thing or never went out. */
+function askedIn(message: { raw: string; failed: string } | null): string {
+  if (!message?.raw || message.failed) return "";
+  try {
+    const asks = (JSON.parse(message.raw) as { asks?: unknown }).asks;
+    return typeof asks === "string" ? asks : "";
+  } catch {
+    return "";
   }
 }
 
@@ -395,8 +457,28 @@ export async function handleComment(value: CommentValue, settings: IgSettings): 
     patch.phone = phone;
   }
 
-  const dm = phone ? await compose("number", settings, subject, { number: formatPhoneDisplay(phone) }) : await compose(subject ? "property" : "askWhich", settings, subject);
-  const sent = await sendToThread({ ...thread, ...patch }, dm, "auto", settings, { commentId });
+  // On a reel about a property the message is a question with two buttons, Yes and Price, and
+  // what they press is answered as a message. It is only asked where that answer will come:
+  // with message replies off, or the office already in the conversation, the details go at once.
+  const ask = subject && !phone && settings.dmAuto && !thread.autoPaused && thread.state !== "spam" ? subject : null;
+  const dm = phone ? await compose("number", settings, subject, { number: formatPhoneDisplay(phone) }) : await compose(ask ? "interest" : subject ? "property" : "askWhich", settings, subject);
+  const sent = await sendToThread(
+    { ...thread, ...patch },
+    dm,
+    "auto",
+    settings,
+    ask
+      ? {
+          commentId,
+          asks: ask.ref,
+          choices: [
+            { title: INTEREST_BUTTONS.yes, payload: `details:${ask.ref}` },
+            { title: INTEREST_BUTTONS.price, payload: `price:${ask.ref}` },
+          ],
+          plain: `${dm}\n${INTEREST_TYPED}`,
+        }
+      : { commentId },
+  );
   // Answered unless sending failed; a conversation already waiting for the office keeps waiting.
   const state: IgState = !sent.ok || thread.state === "needs_you" ? "needs_you" : thread.state === "spam" ? "spam" : "auto";
   await updateThread(thread.id, { ...patch, state, unread: state === "auto" ? 0 : thread.unread + 1 });

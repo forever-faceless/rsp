@@ -28,7 +28,7 @@ export function InstagramSettingsForm({ action, values }: Props) {
           label="Answer comments automatically"
           name="commentAuto"
           defaultChecked={values.commentAuto}
-          hint="Someone who comments on a reel gets that property's details by private message, and a short public reply under the comment. Only comments made after this is switched on."
+          hint="Someone who comments on a reel is asked by private message whether they are interested, with two buttons. Yes sends that property's details; Price asks for their number. A short public reply goes under the comment. Only comments made after this is switched on."
         />
       </div>
 
