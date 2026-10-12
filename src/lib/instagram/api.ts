@@ -39,25 +39,35 @@ async function call<T>(token: string, path: string, opts: { method?: "GET" | "PO
 }
 
 /**
- * A button under a message, shown in the Instagram app on a phone. A tap comes back as an
- * ordinary message carrying the payload. `phone` is the button that sends the number on their
+ * A suggestion above the keyboard, shown in the Instagram app on a phone. A tap comes back as
+ * an ordinary message carrying the payload. `phone` is the one that sends the number on their
  * own profile; Instagram shows it only to people who have one there.
  */
 export type QuickReply = { title: string; payload: string } | { phone: true };
 
-function messageOf(text: string, choices?: QuickReply[]) {
-  if (!choices?.length) return { text };
-  return { text, quick_replies: choices.map((c) => ("phone" in c ? { content_type: "user_phone_number" } : { content_type: "text", title: c.title.slice(0, 20), payload: c.payload })) };
+/**
+ * The two ways Instagram can put buttons with a message. `buttons` sit inside the message's
+ * own bubble, up to three, and a press comes back as a "postback" with the payload. `choices`
+ * are the suggestions above the keyboard.
+ */
+export type Offer = { buttons: { title: string; payload: string }[] } | { choices: QuickReply[] };
+
+function messageOf(text: string, offer?: Offer) {
+  if (offer && "buttons" in offer) {
+    return { attachment: { type: "template", payload: { template_type: "button", text, buttons: offer.buttons.map((b) => ({ type: "postback", title: b.title.slice(0, 20), payload: b.payload })) } } };
+  }
+  if (!offer?.choices.length) return { text };
+  return { text, quick_replies: offer.choices.map((c) => ("phone" in c ? { content_type: "user_phone_number" } : { content_type: "text", title: c.title.slice(0, 20), payload: c.payload })) };
 }
 
 /** A message to someone who has written to the account in the last 24 hours. */
-export function sendText(token: string, igUserId: string, text: string, choices?: QuickReply[]) {
-  return call<{ message_id?: string; recipient_id?: string }>(token, "/me/messages", { method: "POST", body: { recipient: { id: igUserId }, message: messageOf(text, choices) } });
+export function sendText(token: string, igUserId: string, text: string, offer?: Offer) {
+  return call<{ message_id?: string; recipient_id?: string }>(token, "/me/messages", { method: "POST", body: { recipient: { id: igUserId }, message: messageOf(text, offer) } });
 }
 
 /** The one private message Instagram allows in answer to a comment, within 7 days of it. */
-export function sendPrivateReply(token: string, commentId: string, text: string, choices?: QuickReply[]) {
-  return call<{ message_id?: string; recipient_id?: string }>(token, "/me/messages", { method: "POST", body: { recipient: { comment_id: commentId }, message: messageOf(text, choices) } });
+export function sendPrivateReply(token: string, commentId: string, text: string, offer?: Offer) {
+  return call<{ message_id?: string; recipient_id?: string }>(token, "/me/messages", { method: "POST", body: { recipient: { comment_id: commentId }, message: messageOf(text, offer) } });
 }
 
 /** A public reply under a comment. */

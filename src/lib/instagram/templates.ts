@@ -8,13 +8,13 @@ export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 export const TEMPLATE_INFO: Record<TemplateKey, { label: string; when: string; fields: string }> = {
   interest: {
     label: "Interested?",
-    when: "Sent by private message when someone comments on a reel you have tied to a property, with two buttons under it: Yes and Price.",
+    when: "Sent when someone comments on a reel you have tied to a property, or shares that reel in a message. Two buttons go with it: Yes and Price.",
     fields: "{ref} {title}",
   },
   property: {
     label: "Property details",
-    when: "Sent when they press Yes, share a reel you have tied to a property, or type a property number.",
-    fields: "{ref} {title} {facts} {location} {link} {phone}",
+    when: "Sent when they press Yes, or type a property number.",
+    fields: "{ref} {title} {facts} {location} {link} {call} {phone}",
   },
   askNumber: {
     label: "Asked the price",
@@ -49,12 +49,8 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, string> = {
   property: `{ref}: {title}
 {facts}
 {location}
-
-Photos, map and full details:
-{link}
-
-Send your mobile number here and we will call you, or call {phone}.
-ನಿಮ್ಮ ಮೊಬೈಲ್ ನಂಬರ್ ಕಳುಹಿಸಿ, ನಾವೇ ಕಾಲ್ ಮಾಡುತ್ತೇವೆ.`,
+Photos and map: {link}
+Share your number, or call {call}.`,
   askWhich: `Namaskara. Which property would you like to know about? Send its number (for example {example}) or share the reel here.
 ಯಾವ ಪ್ರಾಪರ್ಟಿ ಬಗ್ಗೆ ತಿಳಿಯಬೇಕು? ಅದರ ನಂಬರ್ ಅಥವಾ ರೀಲ್ ಇಲ್ಲಿ ಕಳುಹಿಸಿ.
 

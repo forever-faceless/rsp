@@ -94,16 +94,15 @@ export async function updateMessage(id: number, patch: Partial<typeof igMessages
   await db.update(igMessages).set(patch).where(eq(igMessages.id, id));
 }
 
-/** A message this site sent a moment ago with the same words: Instagram echoes those back. */
-export async function findRecentOwn(threadId: number, text: string): Promise<IgMessage | null> {
+/** What this site sent in a conversation in the last few minutes, newest first: Instagram echoes those back. */
+export async function recentOwn(threadId: number): Promise<IgMessage[]> {
   const db = await getDb();
-  const [row] = await db
+  return db
     .select()
     .from(igMessages)
-    .where(and(eq(igMessages.threadId, threadId), eq(igMessages.direction, "out"), inArray(igMessages.sender, ["auto", "office"]), eq(igMessages.text, text), gte(igMessages.createdAt, new Date(Date.now() - 5 * 60 * 1000))))
+    .where(and(eq(igMessages.threadId, threadId), eq(igMessages.direction, "out"), inArray(igMessages.sender, ["auto", "office"]), gte(igMessages.createdAt, new Date(Date.now() - 5 * 60 * 1000))))
     .orderBy(desc(igMessages.id))
-    .limit(1);
-  return row ?? null;
+    .limit(20);
 }
 
 export async function getMessage(id: number): Promise<IgMessage | null> {
