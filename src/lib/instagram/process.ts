@@ -12,7 +12,7 @@ import { formatPropertyNo } from "@/lib/refs";
 import { siteUrl } from "@/lib/site-url";
 import { formatArea, formatPhoneDisplay, normalisePhone } from "@/lib/utils";
 import { getProfile, IgError, replyToComment, sendPrivateReply, sendText, type Offer } from "./api";
-import { addMessage, createThread, findMedia, findThread, findThreadByUsername, getIgSettings, getMessage, lastSent, messageExists, recentAutoCount, recentOwn, saveIgSettings, tokenOf, updateMessage, updateThread } from "./store";
+import { addMessage, createThread, findMedia, findThread, findThreadByUsername, getIgSettings, getMessage, lastSent, markSeen, messageExists, recentAutoCount, recentOwn, saveIgSettings, tokenOf, updateMessage, updateThread } from "./store";
 import { fillTemplate, INTEREST_BUTTONS, INTEREST_TYPED, templateText, type TemplateKey } from "./templates";
 import { answerOf, commentAsks, DEFAULT_COMMENT_WORDS, findPhone, findRefs, splitWords, topicOf } from "./understand";
 
@@ -36,6 +36,8 @@ type MessagingEvent = {
   message?: { mid?: string; text?: string; is_echo?: boolean; is_deleted?: boolean; attachments?: Attachment[]; reply_to?: { story?: { id?: string; url?: string } }; quick_reply?: { payload?: string } };
   /** A press on a button inside one of the account's messages. */
   postback?: { mid?: string; title?: string; payload?: string };
+  /** They opened the conversation; `mid` is the last message they saw. */
+  read?: { mid?: string };
 };
 type CommentValue = {
   id?: string;
@@ -55,7 +57,8 @@ export async function handleWebhook(payload: unknown): Promise<void> {
   for (const entry of body.entry) {
     for (const event of entry.messaging ?? []) {
       try {
-        await handleMessage(event, settings, entry.id ?? "");
+        if (event.read) await handleSeen(event, entry.id ?? "");
+        else await handleMessage(event, settings, entry.id ?? "");
       } catch (error) {
         await noteError(error);
       }
@@ -302,6 +305,17 @@ function describe(message: NonNullable<MessagingEvent["message"]>): { kind: IgMe
   if (!a) return { kind: "text", ids: [], url: "", title: "" };
   const kind: IgMessageKind = a.type === "ig_reel" || a.type === "reel" ? "reel" : a.type === "ig_post" || a.type === "share" ? "post" : a.type === "story_mention" ? "story" : "media";
   return { kind, ids, url: p.url ?? "", title: p.title ?? "" };
+}
+
+/**
+ * Instagram's word that someone opened the conversation. It is the nearest thing to knowing
+ * a message reached them: one left in their message requests is not reported as read.
+ */
+async function handleSeen(event: MessagingEvent, accountId: string): Promise<void> {
+  const them = event.sender?.id;
+  if (!them || them === accountId) return;
+  const thread = await findThread(them);
+  if (thread) await markSeen(thread.id, event.read?.mid ?? "", event.timestamp ? new Date(event.timestamp) : new Date());
 }
 
 /** A press on a button inside one of the account's messages, read as a message that says the button's words. */

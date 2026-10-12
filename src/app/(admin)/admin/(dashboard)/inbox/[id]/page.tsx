@@ -48,6 +48,7 @@ function Bubble({ m, permalink, tied }: { m: IgMessage; permalink: string; tied:
         <p className={cn("mt-1.5 text-[11px]", mine && m.sender !== "auto" ? "text-navy-300" : "text-ink-400")}>
           {senderLabel[m.sender] ? `${senderLabel[m.sender]} · ` : ""}
           <span className="num">{formatDateTime(m.createdAt)}</span>
+          {mine && m.seenAt ? <span data-seen> · Seen</span> : null}
         </p>
       </div>
     </li>

@@ -1,0 +1,1 @@
+ALTER TABLE `ig_messages` ADD `seen_at` integer;

@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import type { IgMessageKind, IgSender, IgState } from "@/lib/db/enums";
 import { igMedia, igMessages, igSettings, igThreads, IG_STATES, type IgMediaRow, type IgMessage, type IgSettings, type IgThread } from "@/lib/db/schema";
@@ -121,6 +121,63 @@ export async function lastSent(threadId: number): Promise<IgMessage | null> {
     .orderBy(desc(igMessages.id))
     .limit(1);
   return row ?? null;
+}
+
+/**
+ * They opened the conversation. Instagram names the last message they saw; everything sent
+ * to them up to it has been seen too.
+ */
+export async function markSeen(threadId: number, mid: string, when: Date): Promise<void> {
+  const db = await getDb();
+  const [last] = mid
+    ? await db
+        .select({ id: igMessages.id })
+        .from(igMessages)
+        .where(and(eq(igMessages.threadId, threadId), eq(igMessages.mid, mid)))
+        .limit(1)
+    : [];
+  await db
+    .update(igMessages)
+    .set({ seenAt: when })
+    .where(and(eq(igMessages.threadId, threadId), eq(igMessages.direction, "out"), eq(igMessages.failed, ""), isNull(igMessages.seenAt), last ? lte(igMessages.id, last.id) : lte(igMessages.createdAt, when)));
+}
+
+export type Reach = { since: Date; written: number; opened: number; answered: number };
+
+/**
+ * How far the automatic messages get. Counted from the first time Instagram reported a
+ * message as read, since nothing earlier can be told: the people the automation wrote to,
+ * how many of them opened it (or answered, which says the same), and how many answered.
+ * Null until Instagram has reported one message as read.
+ */
+export async function reachOfAutomation(): Promise<Reach | null> {
+  const db = await getDb();
+  const [first] = await db.select({ at: sql<number | null>`min(${igMessages.seenAt})` }).from(igMessages);
+  if (!first?.at) return null;
+  const since = new Date(Number(first.at) * 1000);
+  const rows = await db
+    .select({ id: igMessages.id, threadId: igMessages.threadId, direction: igMessages.direction, kind: igMessages.kind, sender: igMessages.sender, failed: igMessages.failed, seenAt: igMessages.seenAt })
+    .from(igMessages)
+    .where(gte(igMessages.createdAt, since))
+    .orderBy(igMessages.id)
+    .limit(20000);
+  const people = new Map<number, { opened: boolean; answered: boolean }>();
+  for (const m of rows) {
+    const person = people.get(m.threadId);
+    if (m.direction === "out") {
+      if (m.failed) continue;
+      // Counted from the automation's first message to them; what the office sends after counts as opened too.
+      if (!person && m.sender !== "auto") continue;
+      const p = person ?? { opened: false, answered: false };
+      if (m.seenAt) p.opened = true;
+      people.set(m.threadId, p);
+    } else if (person && m.kind !== "comment") {
+      person.opened = true;
+      person.answered = true;
+    }
+  }
+  const all = [...people.values()];
+  return { since, written: all.length, opened: all.filter((p) => p.opened).length, answered: all.filter((p) => p.answered).length };
 }
 
 /** How many automatic replies this conversation has had in the last hour, to stop a runaway exchange. */

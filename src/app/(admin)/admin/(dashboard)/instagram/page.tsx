@@ -3,7 +3,7 @@ import { InstagramSettingsForm, StatusButton } from "@/components/admin/inbox/In
 import { EmptyState, PageHeader, Section, SubmitButton } from "@/components/admin/ui";
 import { checkInstagram, saveInstagramSettings, syncReels, tieMedia } from "@/lib/actions/instagram";
 import { listSurveyTargets } from "@/lib/db/queries";
-import { getIgSettings, listIgMedia, tokenOf, webhookConfigured } from "@/lib/instagram/store";
+import { getIgSettings, listIgMedia, reachOfAutomation, tokenOf, webhookConfigured } from "@/lib/instagram/store";
 import { formatRef } from "@/lib/refs";
 import { siteUrl } from "@/lib/site-url";
 import { cn, formatDate, formatDateTime } from "@/lib/utils";
@@ -23,7 +23,7 @@ function Step({ done, children }: { done: boolean; children: React.ReactNode }) 
 
 /** The connection to Instagram, the automatic replies, and which reel is about which property. */
 export default async function InstagramPage() {
-  const [settings, media, targets] = await Promise.all([getIgSettings(), listIgMedia(), listSurveyTargets()]);
+  const [settings, media, targets, reach] = await Promise.all([getIgSettings(), listIgMedia(), listSurveyTargets(), reachOfAutomation()]);
   const hasToken = Boolean(tokenOf(settings));
   const hooked = webhookConfigured();
   const options = targets.map((t) => {
@@ -71,6 +71,17 @@ export default async function InstagramPage() {
         </Section>
 
         <Section title="Automatic replies" description="Tick the two boxes and press Save. Whatever the automation does not answer comes to you in the Inbox.">
+          <p className="mb-4 rounded-[3px] border border-navy-900/12 bg-paper-100 px-4 py-3 text-[13.5px] text-ink-700" data-ig-reach>
+            {reach ? (
+              <>
+                Since <span className="num">{formatDate(reach.since)}</span> the automation has written to <span className="num font-semibold text-navy-900">{reach.written}</span> {reach.written === 1 ? "person" : "people"}:{" "}
+                <span className="num font-semibold text-navy-900">{reach.opened}</span> opened the message and <span className="num font-semibold text-navy-900">{reach.answered}</span> answered or pressed a button. Instagram does not say where a
+                message lands. One that is never opened may be waiting in their message requests.
+              </>
+            ) : (
+              "Instagram has not yet reported any message as opened. Once it does, this line counts how many people open and answer the automatic messages."
+            )}
+          </p>
           <InstagramSettingsForm
             action={saveInstagramSettings}
             values={{ dmAuto: settings.dmAuto, commentAuto: settings.commentAuto, commentWords: settings.commentWords, linkLocale: settings.linkLocale, templates: settings.templates ?? {} }}

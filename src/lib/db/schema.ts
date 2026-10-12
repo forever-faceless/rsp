@@ -434,6 +434,8 @@ export const igMessages = sqliteTable(
     mediaTitle: text("media_title").notNull().default(""),
     /** Why sending failed, when it did. */
     failed: text("failed").notNull().default(""),
+    /** When Instagram reported that they had opened a message sent to them. Empty for one not opened, or opened by someone who keeps read receipts off. */
+    seenAt: integer("seen_at", { mode: "timestamp" }),
     /** What Instagram sent, kept for a while to learn its shapes. Never shown in public. */
     raw: text("raw").notNull().default(""),
     createdAt: integer("created_at", { mode: "timestamp" })
