@@ -338,6 +338,11 @@ async function handleMessage(event: MessagingEvent, settings: IgSettings, accoun
   if (await messageExists(message.mid)) return;
 
   const text = (message.text ?? "").trim();
+  // Under a phone number someone sends, Instagram adds a card of its own ("Phone number", with
+  // Call and WhatsApp) and reports it as a second message from them: a bare template, no words.
+  // It is not theirs, and answering it would follow the thank-you with a second reply.
+  const cards = message.attachments ?? [];
+  if (!echo && !text && cards.length > 0 && cards.every((a) => a.type === "template")) return;
   const thread = await threadFor(them, settings);
   const when = event.timestamp ? new Date(event.timestamp) : new Date();
 
