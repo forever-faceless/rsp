@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import type { IgMessageKind, IgSender, IgState } from "@/lib/db/enums";
 import { igMedia, igMessages, igSettings, igThreads, IG_STATES, type IgMediaRow, type IgMessage, type IgSettings, type IgThread } from "@/lib/db/schema";
@@ -140,6 +140,62 @@ export async function markSeen(threadId: number, mid: string, when: Date): Promi
     .update(igMessages)
     .set({ seenAt: when })
     .where(and(eq(igMessages.threadId, threadId), eq(igMessages.direction, "out"), eq(igMessages.failed, ""), isNull(igMessages.seenAt), last ? lte(igMessages.id, last.id) : lte(igMessages.createdAt, when)));
+}
+
+/** The price messages sent between `oldest` and `newest` that have not been looked at for a reminder yet. */
+export async function priceMessagesDue(oldest: Date, newest: Date): Promise<IgMessage[]> {
+  const db = await getDb();
+  return db
+    .select()
+    .from(igMessages)
+    .where(and(eq(igMessages.direction, "out"), eq(igMessages.sender, "auto"), eq(igMessages.failed, ""), gte(igMessages.createdAt, oldest), lte(igMessages.createdAt, newest), sql`${igMessages.raw} like '%"is":"askNumber"%'`, sql`${igMessages.raw} not like '%"reminded"%'`))
+    .orderBy(igMessages.id)
+    .limit(50);
+}
+
+/** What they have written in a conversation since one message. */
+export async function wroteSince(threadId: number, afterId: number): Promise<string[]> {
+  const db = await getDb();
+  const rows = await db
+    .select({ text: igMessages.text })
+    .from(igMessages)
+    .where(and(eq(igMessages.threadId, threadId), eq(igMessages.direction, "in"), gt(igMessages.id, afterId)));
+  return rows.map((r) => r.text);
+}
+
+/** Takes a price message for its one look. False when another run of the check got there first. */
+export async function claimReminder(message: IgMessage): Promise<boolean> {
+  const db = await getDb();
+  const kept = (() => {
+    try {
+      return JSON.parse(message.raw || "{}") as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  })();
+  const moved = await db
+    .update(igMessages)
+    .set({ raw: JSON.stringify({ ...kept, reminded: true }) })
+    .where(and(eq(igMessages.id, message.id), sql`${igMessages.raw} not like '%"reminded"%'`))
+    .returning({ id: igMessages.id });
+  return moved.length > 0;
+}
+
+/** True when this conversation has had its one reminder already. */
+export async function wasReminded(threadId: number): Promise<boolean> {
+  const db = await getDb();
+  const [row] = await db
+    .select({ id: igMessages.id })
+    .from(igMessages)
+    .where(and(eq(igMessages.threadId, threadId), eq(igMessages.direction, "out"), sql`${igMessages.raw} like '%"is":"remind"%'`))
+    .limit(1);
+  return Boolean(row);
+}
+
+export async function getThreadById(id: number): Promise<IgThread | null> {
+  const db = await getDb();
+  const [row] = await db.select().from(igThreads).where(eq(igThreads.id, id));
+  return row ?? null;
 }
 
 export type Reach = { since: Date; written: number; opened: number; answered: number };

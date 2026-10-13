@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db/client";
-import { LEAD_PURPOSE_ANSWERS, LEAD_STATUSES, leads, projects, properties, sites, type LeadPurposeAnswer, type LeadStatus } from "@/lib/db/schema";
+import { LEAD_KINDS, LEAD_PURPOSE_ANSWERS, LEAD_STATUSES, leads, projects, properties, sites, type LeadKind, type LeadPurposeAnswer, type LeadStatus } from "@/lib/db/schema";
 import type { ActionState } from "@/lib/forms";
 import { isLeadChannel } from "@/lib/lead-sources";
 import { formatRef } from "@/lib/refs";
@@ -88,6 +88,7 @@ export async function updateLeadNotes(id: number, formData: FormData): Promise<v
   await requireAdmin();
   const notes = String(formData.get("notes") ?? "").slice(0, 2000);
   const statusRaw = String(formData.get("status") ?? "");
+  const kindRaw = String(formData.get("kind") ?? "");
   const db = await getDb();
   await db
     .update(leads)
@@ -97,6 +98,8 @@ export async function updateLeadNotes(id: number, formData: FormData): Promise<v
       // as one, so once saved they are one.
       message: sql`case when ${leads.source} like 'office:%' then '' else ${leads.message} end`,
       ...(LEAD_STATUSES.includes(statusRaw as LeadStatus) ? { status: statusRaw as LeadStatus } : {}),
+      // Someone taken for a buyer who turns out to have a property to sell, or the other way round.
+      ...(LEAD_KINDS.includes(kindRaw as LeadKind) ? { kind: kindRaw as LeadKind } : {}),
     })
     .where(eq(leads.id, id));
   revalidatePath("/admin", "layout");

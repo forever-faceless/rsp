@@ -3,7 +3,7 @@ import Link from "next/link";
 import { WhatsAppIcon } from "@/components/site/PhoneLinks";
 import { deleteLead, updateLeadNotes } from "@/lib/actions/leads";
 import type { LeadWithRefs } from "@/lib/db/queries";
-import { LEAD_STATUSES, type LeadStatus } from "@/lib/db/schema";
+import { LEAD_KINDS, LEAD_STATUSES, type LeadKind, type LeadStatus } from "@/lib/db/schema";
 import { replayUrl } from "@/lib/analytics-config";
 import { leadSourceLabel, leadThreadHref } from "@/lib/lead-sources";
 import { cn, formatDateTime, formatPhoneDisplay, telHref, whatsappHref } from "@/lib/utils";
@@ -17,6 +17,7 @@ const statusTone: Record<LeadStatus, string> = {
 };
 
 const statusLabel: Record<LeadStatus, string> = { new: "New", contacted: "Contacted", qualified: "Qualified", closed: "Closed" };
+const kindLabel: Record<LeadKind, string> = { buy: "Wants to buy", sell: "Wants to sell" };
 const purposeLabel = { self_use: "Own use", investment: "Investment", other: "Other" } as const;
 
 export function LeadRow({ lead, compact = false, company }: { lead: LeadWithRefs; compact?: boolean; company: string }) {
@@ -43,7 +44,7 @@ export function LeadRow({ lead, compact = false, company }: { lead: LeadWithRefs
                 Not sent
               </span>
             ) : null}
-            <span className={cn("badge", selling ? "bg-navy-900 text-gold-200" : "bg-paper-200 text-ink-700")}>{selling ? "Wants to sell" : "Wants to buy"}</span>
+            <span className={cn("badge", selling ? "bg-navy-900 text-gold-200" : "bg-paper-200 text-ink-700")}>{kindLabel[lead.kind]}</span>
             {lead.locale === "kn" ? <span className="badge bg-paper-200 text-ink-700">ಕನ್ನಡ</span> : null}
             <span className="num text-xs text-ink-400">{formatDateTime(lead.createdAt)}</span>
           </div>
@@ -89,13 +90,22 @@ export function LeadRow({ lead, compact = false, company }: { lead: LeadWithRefs
         </div>
         {!compact ? (
           <form action={updateLeadNotes.bind(null, lead.id)} className="w-full space-y-2 md:w-80">
-            <select name="status" defaultValue={lead.status} className="field !py-2 text-[14px]" aria-label="Status">
-              {LEAD_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {statusLabel[s]}
-                </option>
-              ))}
-            </select>
+            <div className="grid grid-cols-2 gap-2">
+              <select name="status" defaultValue={lead.status} className="field !py-2 text-[14px]" aria-label="Status">
+                {LEAD_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {statusLabel[s]}
+                  </option>
+                ))}
+              </select>
+              <select name="kind" defaultValue={lead.kind} className="field !py-2 text-[14px]" aria-label="Buying or selling">
+                {LEAD_KINDS.map((k) => (
+                  <option key={k} value={k}>
+                    {kindLabel[k]}
+                  </option>
+                ))}
+              </select>
+            </div>
             <textarea name="notes" defaultValue={notes} rows={byOffice ? 3 : 2} maxLength={2000} placeholder={byOffice ? "Notes" : "Follow-up notes"} className="field text-[14px]" aria-label="Notes" />
             <div className="flex items-center justify-between gap-2">
               <SubmitButton className="btn-sm">Save</SubmitButton>

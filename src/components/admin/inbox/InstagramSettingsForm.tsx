@@ -22,7 +22,7 @@ export function InstagramSettingsForm({ action, values }: Props) {
           label="Answer messages automatically"
           name="dmAuto"
           defaultChecked={values.dmAuto}
-          hint="Someone who shares a reel is asked whether they are interested, with two buttons: Yes sends that property's details, Price asks for their number. A number they send is saved to Leads. Everything after that comes to you. Switch any other reply tool off first."
+          hint="Someone who shares a reel is asked whether they are interested, with two buttons: Details sends that property's details, Price asks for their number. A number they send is saved to Leads. Everything after that comes to you. Switch any other reply tool off first."
         />
         <Checkbox
           label="Answer comments automatically"

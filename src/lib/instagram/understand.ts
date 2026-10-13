@@ -73,6 +73,26 @@ export function answerOf(text: string): "details" | "price" | null {
   return [...YES, ...WORDS.property].some((w) => has(t, w)) ? "details" : null;
 }
 
+const ACKS = new Set(["ok", "okk", "okay", "oky", "okie", "k", "kk", "hm", "hmm", "fine", "good", "nice", "super", "thanks", "thank", "thankyou", "thanku", "tq", "ty", "thx", "tnx", "sari", "seri", "aythu", "aitu", "ayitu", "ಸರಿ", "ಆಯ್ತು", "ಓಕೆ", "ಧನ್ಯವಾದ", "ಧನ್ಯವಾದಗಳು"]);
+/** Words that ride along with one of those ("ok sir", "thank you") but are not one by themselves. */
+const RIDERS = new Set(["sir", "you", "madam", "anna", "bro"]);
+
+/**
+ * A bare "ok", "thanks" or thumbs up: it closes an exchange and asks nothing, so it needs no
+ * answer and no one's attention. Anything with a question in it is not one of these.
+ */
+export function isAck(text: string): boolean {
+  if (!text.trim() || text.length > 30 || /[?？]/.test(text)) return false;
+  // What is left once emoji and punctuation are gone: nothing (it was only a thumbs up), or a word or two.
+  const words = text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{M}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!words.length) return true;
+  return words.length <= 3 && words.every((w) => ACKS.has(w) || RIDERS.has(w)) && words.some((w) => ACKS.has(w));
+}
+
 /** True when a comment on a reel should get the details: any of the office's chosen words, or a number. */
 export function commentAsks(text: string, words: string[]): boolean {
   const t = text.toLowerCase();

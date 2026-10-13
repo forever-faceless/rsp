@@ -12,9 +12,31 @@ import { formatPropertyNo } from "@/lib/refs";
 import { siteUrl } from "@/lib/site-url";
 import { formatArea, formatPhoneDisplay, normalisePhone } from "@/lib/utils";
 import { getProfile, IgError, replyToComment, sendPrivateReply, sendText, type Offer } from "./api";
-import { addMessage, createThread, findMedia, findThread, findThreadByUsername, getIgSettings, getMessage, lastSent, markSeen, messageExists, recentAutoCount, recentOwn, saveIgSettings, tokenOf, updateMessage, updateThread } from "./store";
+import {
+  addMessage,
+  claimReminder,
+  createThread,
+  findMedia,
+  findThread,
+  findThreadByUsername,
+  getIgSettings,
+  getMessage,
+  getThreadById,
+  lastSent,
+  markSeen,
+  messageExists,
+  priceMessagesDue,
+  recentAutoCount,
+  recentOwn,
+  saveIgSettings,
+  tokenOf,
+  updateMessage,
+  updateThread,
+  wasReminded,
+  wroteSince,
+} from "./store";
 import { fillTemplate, INTEREST_BUTTONS, INTEREST_TYPED, templateText, type TemplateKey } from "./templates";
-import { answerOf, commentAsks, DEFAULT_COMMENT_WORDS, findPhone, findRefs, splitWords, topicOf } from "./understand";
+import { answerOf, commentAsks, DEFAULT_COMMENT_WORDS, findPhone, findRefs, isAck, splitWords, topicOf } from "./understand";
 
 /**
  * What happens when Instagram tells the site about a message or a comment. Everything is
@@ -115,14 +137,14 @@ export async function subjectFor(ref: string, settings: IgSettings): Promise<Sub
   }
   if (found.type !== "listing") return null;
   const d = found.detail;
-  const priced = priceLine(d.price, d.pricePerSqft, "per sq ft");
-  const price = priced || "Call for price";
+  const price = priceLine(d.price, d.pricePerSqft, "per sq ft") || "Call for price";
   const link = `${base}/properties/${d.slug}/interest?from=instagram`;
   return {
     ref: d.ref,
     title: pick(d, "title", locale),
-    // A price only where the listing shows one; "call for price" is not worth a place in the line.
-    facts: [d.dimension ? `${d.dimension} ft` : "", d.areaSqft ? formatArea(d.areaSqft, d.areaUnit) : "", priced].filter(Boolean).join(" · "),
+    // Size only. The office gives prices on a call, so no automatic message carries one, even
+    // for a listing that shows its price on the website.
+    facts: [d.dimension ? `${d.dimension} ft` : "", d.areaSqft ? formatArea(d.areaSqft, d.areaUnit) : ""].filter(Boolean).join(" · "),
     location: pick(d, "location", locale),
     price: d.negotiable && d.price ? `${price}, slightly negotiable` : price,
     link,
@@ -156,7 +178,7 @@ async function compose(key: TemplateKey, settings: IgSettings, subject: Subject 
 async function interestIn(subject: Subject, settings: IgSettings): Promise<{ text: string; via: SendWith }> {
   const text = await compose("interest", settings, subject);
   const buttons = [
-    { title: INTEREST_BUTTONS.yes, payload: `details:${subject.ref}` },
+    { title: INTEREST_BUTTONS.details, payload: `details:${subject.ref}` },
     { title: INTEREST_BUTTONS.price, payload: `price:${subject.ref}` },
   ];
   // Inside the message's own bubble; should Instagram refuse that, as suggestions above the keyboard; failing both, spelt out.
@@ -429,13 +451,21 @@ async function handleMessage(event: MessagingEvent, settings: IgSettings, accoun
     patch.leadId = leadId;
     patch.phone = phone;
   }
+  // Someone whose number is already on file as a buyer's says they want to sell: the lead follows.
+  const leadId = patch.leadId ?? thread.leadId;
+  if (said === "sell" && leadId) await (await getDb()).update(leads).set({ kind: "sell" }).where(eq(leads.id, leadId));
 
   // ----- answer, or hand over
-  const automatic = settings.dmAuto && !thread.autoPaused && thread.state !== "spam" && Boolean(tokenOf(settings)) && (await recentAutoCount(thread.id)) < AUTO_LIMIT;
+  const live = settings.dmAuto && thread.state !== "spam" && Boolean(tokenOf(settings)) && (await recentAutoCount(thread.id)) < AUTO_LIMIT;
+  const automatic = live && !thread.autoPaused;
   let reply: string | null = null;
   let via: SendWith = {};
   let state: IgState = "needs_you";
-  if (automatic) {
+  // A bare "ok" or thumbs up asks nothing: no reply, and the conversation stays where it was.
+  const quiet = automatic && what.kind === "text" && !phone && !choice && !refs.length && isAck(text);
+  if (quiet) {
+    state = thread.state;
+  } else if (automatic) {
     if (phone) {
       reply = await compose("number", settings, known, { number: formatPhoneDisplay(phone) });
       state = "auto";
@@ -477,11 +507,15 @@ async function handleMessage(event: MessagingEvent, settings: IgSettings, accoun
     // Anything else is the office's, and so is whatever they ask once they have a property's
     // details. Handed over: tell them once that a person will answer, not on every message.
     if (reply === null && thread.state !== "needs_you") reply = (await compose("holding", settings, known)) || null;
+  } else if (live && phone) {
+    // The office is in this conversation, and it still gets the number to deal with. But the
+    // person is thanked all the same: silence after a number leaves them asking whether it arrived.
+    reply = await compose("number", settings, known, { number: formatPhoneDisplay(phone) });
   }
   // Once a conversation is waiting for the office it stays there until the office has dealt
   // with it, even if a later line could be answered automatically. Spam stays spam.
   if (thread.state === "needs_you" || thread.state === "spam") state = thread.state;
-  patch.unread = state === "auto" ? 0 : thread.unread + 1;
+  patch.unread = quiet ? thread.unread : state === "auto" ? 0 : thread.unread + 1;
 
   await updateThread(thread.id, { ...patch, state });
   if (reply) {
@@ -502,6 +536,40 @@ function noteOf(message: { raw: string; failed: string } | null): { asks?: strin
   } catch {
     return {};
   }
+}
+
+// ---------------------------------------------------------------- one reminder after the price
+
+/** A reminder goes half an hour after the price message, and not at all once two hours have passed. */
+const REMIND_AFTER = 30 * 60 * 1000;
+const REMIND_UNTIL = 2 * 60 * 60 * 1000;
+/** Instagram allows a message for 24 hours after theirs; an hour is kept in hand. */
+const REPLY_WINDOW = 23 * 60 * 60 * 1000;
+
+/**
+ * Someone asked the price, was asked for their number, and has sent nothing since (an "ok"
+ * aside): one reminder, half an hour on. Each price message is looked at once, and a
+ * conversation is reminded once ever. Left alone: anyone the office is talking to, anyone
+ * who has given a number, and anyone who went on to something else. Run by the
+ * minute-by-minute check.
+ */
+export async function remindAboutPrice(now = new Date()): Promise<number> {
+  const settings = await getIgSettings();
+  if (!settings.dmAuto || !tokenOf(settings)) return 0;
+  let reminded = 0;
+  for (const asked of await priceMessagesDue(new Date(now.getTime() - REMIND_UNTIL), new Date(now.getTime() - REMIND_AFTER))) {
+    if (!(await claimReminder(asked))) continue;
+    const thread = await getThreadById(asked.threadId);
+    if (!thread || thread.autoPaused || thread.state !== "auto" || thread.phone || thread.leadId || !thread.ref) continue;
+    if (!thread.lastInboundAt || now.getTime() - thread.lastInboundAt.getTime() > REPLY_WINDOW) continue;
+    if ((await lastSent(thread.id))?.id !== asked.id || (await wasReminded(thread.id))) continue;
+    if ((await wroteSince(thread.id, asked.id)).some((text) => !isAck(text))) continue;
+    const subject = await subjectFor(thread.ref, settings);
+    if (!subject) continue;
+    const sent = await sendToThread(thread, await compose("remind", settings, subject), "auto", settings, { is: "remind" });
+    if (sent.ok) reminded++;
+  }
+  return reminded;
 }
 
 // ---------------------------------------------------------------- a comment on a reel or post
