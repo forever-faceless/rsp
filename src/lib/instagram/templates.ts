@@ -18,7 +18,7 @@ export const TEMPLATE_INFO: Record<TemplateKey, { label: string; when: string; f
   },
   askNumber: {
     label: "Asked the price",
-    when: "Sent when they press Price. Instagram also offers them a button that sends their own number.",
+    when: "Sent when they press Price, or ask the price in their own words.",
     fields: "{call} {phone} {ref}",
   },
   askWhich: {
@@ -45,12 +45,18 @@ export const INTEREST_TYPED = "Reply YES for the details, or PRICE.";
 
 export const DEFAULT_TEMPLATES: Record<TemplateKey, string> = {
   interest: `Interested in {ref}: {title}?`,
-  askNumber: `Please share your number, or call us on {call}.`,
+  askNumber: `Please send us your number and our team will contact you with the price.
+ಬೆಲೆ ತಿಳಿಯಲು ನಿಮ್ಮ ಮೊಬೈಲ್ ನಂಬರ್ ಕಳುಹಿಸಿ, ನಮ್ಮ ತಂಡ ಕಾಲ್ ಮಾಡುತ್ತದೆ.
+
+Or you can call us on {call}.
+ಅಥವಾ {call} ಗೆ ಕಾಲ್ ಮಾಡಿ.`,
   property: `{ref}: {title}
 {facts}
 {location}
 Photos and map: {link}
-Share your number, or call {call}.`,
+
+For the price and details, call {call}, or send us your number and we will call you.
+ಬೆಲೆ ಮತ್ತು ಡೀಟೇಲ್ಸ್‌ಗೆ {call} ಗೆ ಕಾಲ್ ಮಾಡಿ, ಅಥವಾ ನಿಮ್ಮ ಮೊಬೈಲ್ ನಂಬರ್ ಕಳುಹಿಸಿ, ನಾವೇ ಕಾಲ್ ಮಾಡುತ್ತೇವೆ.`,
   askWhich: `Namaskara. Which property would you like to know about? Send its number (for example {example}) or share the reel here.
 ಯಾವ ಪ್ರಾಪರ್ಟಿ ಬಗ್ಗೆ ತಿಳಿಯಬೇಕು? ಅದರ ನಂಬರ್ ಅಥವಾ ರೀಲ್ ಇಲ್ಲಿ ಕಳುಹಿಸಿ.
 

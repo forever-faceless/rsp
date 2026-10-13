@@ -40,10 +40,10 @@ async function call<T>(token: string, path: string, opts: { method?: "GET" | "PO
 
 /**
  * A suggestion above the keyboard, shown in the Instagram app on a phone. A tap comes back as
- * an ordinary message carrying the payload. `phone` is the one that sends the number on their
- * own profile; Instagram shows it only to people who have one there.
+ * an ordinary message carrying the payload. (Instagram's "send my phone number" suggestion is
+ * not offered: it refused every one the site tried.)
  */
-export type QuickReply = { title: string; payload: string } | { phone: true };
+export type QuickReply = { title: string; payload: string };
 
 /**
  * The two ways Instagram can put buttons with a message. `buttons` sit inside the message's
@@ -57,7 +57,7 @@ function messageOf(text: string, offer?: Offer) {
     return { attachment: { type: "template", payload: { template_type: "button", text, buttons: offer.buttons.map((b) => ({ type: "postback", title: b.title.slice(0, 20), payload: b.payload })) } } };
   }
   if (!offer?.choices.length) return { text };
-  return { text, quick_replies: offer.choices.map((c) => ("phone" in c ? { content_type: "user_phone_number" } : { content_type: "text", title: c.title.slice(0, 20), payload: c.payload })) };
+  return { text, quick_replies: offer.choices.map((c) => ({ content_type: "text", title: c.title.slice(0, 20), payload: c.payload })) };
 }
 
 /** A message to someone who has written to the account in the last 24 hours. */

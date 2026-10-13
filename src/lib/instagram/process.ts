@@ -189,6 +189,8 @@ type SendWith = {
   plain?: string;
   /** The property this message asks "interested?" about, kept with it so a typed answer can be placed. */
   asks?: string;
+  /** Which of the set replies this is, kept with it so the same one is not sent twice running. */
+  is?: string;
 };
 
 const lookOf = (offer?: Offer) => (!offer ? "plain" : "buttons" in offer ? "buttons" : "suggestions");
@@ -201,7 +203,7 @@ export async function sendToThread(thread: IgThread, text: string, sender: "auto
   const token = tokenOf(settings);
   const offers = via.offers ?? [];
   // Kept with the message: what it asks, and how its buttons went out.
-  const note = (offer?: Offer) => (via.asks || offers.length ? JSON.stringify({ ...(via.asks ? { asks: via.asks } : {}), ...(offers.length ? { look: lookOf(offer) } : {}) }) : "");
+  const note = (offer?: Offer) => (via.asks || via.is || offers.length ? JSON.stringify({ ...(via.asks ? { asks: via.asks } : {}), ...(via.is ? { is: via.is } : {}), ...(offers.length ? { look: lookOf(offer) } : {}) }) : "");
   const row = await addMessage({ threadId: thread.id, direction: "out", kind: "text", sender, text, raw: note(offers[0]) });
   if (!token) {
     if (row) await updateMessage(row.id, { failed: "Instagram is not connected yet." });
@@ -398,10 +400,11 @@ async function handleMessage(event: MessagingEvent, settings: IgSettings, accoun
   // while that question is still the last thing said to them.
   const tapped = /^(details|price):(.+)$/.exec(message.quick_reply?.payload ?? "");
   let choice: { want: "details" | "price"; ref: string } | null = tapped ? { want: tapped[1] as "details" | "price", ref: tapped[2] } : null;
+  // What was last said to them decides how a short answer is read.
+  const last: ReturnType<typeof noteOf> = what.kind === "text" && !choice ? noteOf(await lastSent(thread.id)) : {};
   if (!choice && what.kind === "text" && !phone && !refs.length) {
-    const asked = askedIn(await lastSent(thread.id));
-    const want = asked ? answerOf(text) : null;
-    if (want) choice = { want, ref: asked };
+    const want = last.asks ? answerOf(text) : null;
+    if (want && last.asks) choice = { want, ref: last.asks };
   }
   let subject: Subject | null = null;
   if (what.kind === "reel" || what.kind === "post") subject = media?.ref ? await subjectFor(media.ref, settings) : null;
@@ -445,9 +448,9 @@ async function handleMessage(event: MessagingEvent, settings: IgSettings, accoun
     } else if (what.kind !== "text") {
       // A story reply, a photo, a voice note: for a person to read.
     } else if (choice?.want === "price") {
-      // The office gives the price on a call: ask for their number, with Instagram's own button for sending it.
+      // The office gives the price on a call, so the Price button asks for their number.
       reply = await compose("askNumber", settings, known);
-      via = { offers: [{ choices: [{ phone: true }] }] };
+      via = { is: "askNumber" };
       state = "auto";
     } else if (choice && subject) {
       reply = await compose("property", settings, subject);
@@ -460,6 +463,12 @@ async function handleMessage(event: MessagingEvent, settings: IgSettings, accoun
     } else if (said === "sell") {
       // Answered, and still shown to the office: an owner who wants to sell is worth a call.
       reply = await compose("sell", settings, null);
+    } else if (said === "price" && last.is !== "askNumber") {
+      // The price asked in their own words, at any point: the same answer as the button. Asked
+      // again straight after it, the words are not repeated; a person takes it from there.
+      reply = await compose("askNumber", settings, known);
+      via = { is: "askNumber" };
+      state = "auto";
     } else if (said !== "other" && !known) {
       // A hello or a question before any property is known: ask which one they mean.
       reply = await compose("askWhich", settings, null);
@@ -481,14 +490,17 @@ async function handleMessage(event: MessagingEvent, settings: IgSettings, accoun
   }
 }
 
-/** The property a sent message asked "interested?" about, or "" when it asked no such thing or never went out. */
-function askedIn(message: { raw: string; failed: string } | null): string {
-  if (!message?.raw || message.failed) return "";
+/**
+ * What was kept with a sent message: the property it asked "interested?" about, or which of
+ * the set replies it was. Empty for a message that carried neither, or that never went out.
+ */
+function noteOf(message: { raw: string; failed: string } | null): { asks?: string; is?: string } {
+  if (!message?.raw || message.failed) return {};
   try {
-    const asks = (JSON.parse(message.raw) as { asks?: unknown }).asks;
-    return typeof asks === "string" ? asks : "";
+    const kept = JSON.parse(message.raw) as { asks?: unknown; is?: unknown };
+    return { asks: typeof kept.asks === "string" ? kept.asks : undefined, is: typeof kept.is === "string" ? kept.is : undefined };
   } catch {
-    return "";
+    return {};
   }
 }
 

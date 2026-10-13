@@ -36,7 +36,7 @@ export function findRefs(text: string, prefixes: string[]): string[] {
 // English, Kannada, and Kannada as it is typed in English letters.
 const WORDS: Record<Exclude<IgTopic, "reel" | "number" | "other">, string[]> = {
   sell: ["sell", "selling", "for sale my", "want to sale", "maratakke", "marata", "marbeku", "ಮಾರಾಟ", "ಮಾರಬೇಕು", "ಮಾರಲು"],
-  price: ["price", "rate", "cost", "how much", "amount", "budget", "bele", "yestu", "eshtu", "estu", "ಬೆಲೆ", "ರೇಟ್", "ದರ", "ಎಷ್ಟು"],
+  price: ["price", "prise", "prize", "rate", "cost", "how much", "amount", "budget", "bele", "yestu", "eshtu", "estu", "ಬೆಲೆ", "ಪ್ರೈಸ್", "ರೇಟ್", "ರೇಟು", "ದರ", "ಎಷ್ಟು"],
   location: ["location", "where", "address", "map", "route", "direction", "landmark", "yelli", "elli", "jaaga", "jaga", "ಎಲ್ಲಿ", "ಲೊಕೇಶನ್", "ವಿಳಾಸ", "ಜಾಗ"],
   visit: ["visit", "see the site", "see the property", "show me", "site nod", "nodbeku", "nodabeku", "ನೋಡಬೇಕು", "ವಿಸಿಟ್", "ಭೇಟಿ"],
   property: ["detail", "details", "info", "information", "interested", "intrested", "available", "tell me more", "more about", "link", "vivara", "mahiti", "beku", "ವಿವರ", "ಮಾಹಿತಿ", "ಬೇಕು", "ಇದೆಯಾ"],
