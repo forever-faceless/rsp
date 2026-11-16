@@ -118,19 +118,20 @@ export function LeadForm({ action, subjects, budgets, timelines }: Props) {
         maxLength={2000}
         rows={3}
         placeholder={buying ? "What they are looking for, when to call back" : "Where it is, the size, the price they expect, when to call back"}
-        hint="You can add to these later on the Leads page."
+        hint="You can add to these later on the lead's own page."
       />
 
       <div className="md:max-w-[14rem]">
         <Select
-          label="Status"
+          label="Stage"
           name="status"
           defaultValue="new"
           options={[
             { value: "new", label: "New" },
-            { value: "contacted", label: "Contacted" },
-            { value: "qualified", label: "Qualified" },
-            { value: "closed", label: "Closed" },
+            { value: "contacted", label: "Talked" },
+            { value: "visit_booked", label: "Visit booked" },
+            { value: "visited", label: "Visited" },
+            { value: "negotiating", label: "Negotiating" },
           ]}
         />
       </div>

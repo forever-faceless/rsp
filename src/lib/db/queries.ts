@@ -4,6 +4,7 @@ import { getDb, type Db } from "./client";
 import {
   landmarks,
   leads,
+  LEAD_STATUSES,
   projects,
   properties,
   PROPERTY_TYPES,
@@ -769,7 +770,7 @@ export async function getTestimonial(id: number): Promise<Testimonial | null> {
 
 export type LeadWithRefs = Lead & { subject: string | null };
 
-export async function listLeads(filters: { status?: LeadStatus; kind?: LeadKind } = {}): Promise<LeadWithRefs[]> {
+export async function listLeads(filters: { status?: LeadStatus; kind?: LeadKind; id?: number } = {}): Promise<LeadWithRefs[]> {
   const db = await getDb();
   const rows = await db
     .select({
@@ -780,7 +781,7 @@ export async function listLeads(filters: { status?: LeadStatus; kind?: LeadKind 
     .from(leads)
     .leftJoin(projects, eq(leads.projectId, projects.id))
     .leftJoin(properties, eq(leads.propertyId, properties.id))
-    .where(compact([filters.status ? eq(leads.status, filters.status) : undefined, filters.kind ? eq(leads.kind, filters.kind) : undefined]))
+    .where(compact([filters.status ? eq(leads.status, filters.status) : undefined, filters.kind ? eq(leads.kind, filters.kind) : undefined, filters.id ? eq(leads.id, filters.id) : undefined]))
     .orderBy(desc(leads.createdAt));
   return rows.map((r) => ({ ...r.lead, subject: r.propertyTitle ?? r.projectName ?? null }));
 }
@@ -788,8 +789,8 @@ export async function listLeads(filters: { status?: LeadStatus; kind?: LeadKind 
 export async function countLeadsByStatus(): Promise<Record<LeadStatus, number>> {
   const db = await getDb();
   const rows = await db.select({ status: leads.status, n: sql<number>`count(*)` }).from(leads).groupBy(leads.status);
-  const out: Record<LeadStatus, number> = { new: 0, contacted: 0, qualified: 0, closed: 0 };
-  for (const r of rows) out[r.status] = Number(r.n);
+  const out = Object.fromEntries(LEAD_STATUSES.map((s) => [s, 0])) as Record<LeadStatus, number>;
+  for (const r of rows) if (r.status in out) out[r.status] = Number(r.n);
   return out;
 }
 

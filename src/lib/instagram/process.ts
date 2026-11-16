@@ -6,6 +6,8 @@ import { getProjectBySlug, getSettings, listRegions } from "@/lib/db/queries";
 import { leads, type IgMessage, type IgSettings, type IgThread } from "@/lib/db/schema";
 import { googleMapsLink } from "@/lib/geo";
 import { pick } from "@/lib/i18n";
+import { en } from "@/lib/i18n/dictionaries/en";
+import { kn } from "@/lib/i18n/dictionaries/kn";
 import { lookupListing } from "@/lib/listing-detail";
 import { priceLine } from "@/lib/pricing";
 import { formatPropertyNo } from "@/lib/refs";
@@ -139,12 +141,13 @@ export async function subjectFor(ref: string, settings: IgSettings): Promise<Sub
   const d = found.detail;
   const price = priceLine(d.price, d.pricePerSqft, "per sq ft") || "Call for price";
   const link = `${base}/properties/${d.slug}/interest?from=instagram`;
+  const facing = (locale === "kn" ? kn : en).facing;
   return {
     ref: d.ref,
     title: pick(d, "title", locale),
     // Size only. The office gives prices on a call, so no automatic message carries one, even
     // for a listing that shows its price on the website.
-    facts: [d.dimension ? `${d.dimension} ft` : "", d.areaSqft ? formatArea(d.areaSqft, d.areaUnit) : ""].filter(Boolean).join(" · "),
+    facts: [d.dimension ? `${d.dimension} ft` : "", d.facing ? `${facing[d.facing]} ${facing.label.toLowerCase()}` : "", d.areaSqft ? formatArea(d.areaSqft, d.areaUnit) : ""].filter(Boolean).join(" · "),
     location: pick(d, "location", locale),
     price: d.negotiable && d.price ? `${price}, slightly negotiable` : price,
     link,

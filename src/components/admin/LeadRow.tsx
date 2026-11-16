@@ -1,120 +1,74 @@
-import { Inbox, Mail, Phone, PlayCircle } from "lucide-react";
+import { CalendarClock, ChevronRight, Phone } from "lucide-react";
 import Link from "next/link";
 import { WhatsAppIcon } from "@/components/site/PhoneLinks";
-import { deleteLead, updateLeadNotes } from "@/lib/actions/leads";
 import type { LeadWithRefs } from "@/lib/db/queries";
-import { LEAD_KINDS, LEAD_STATUSES, type LeadKind, type LeadStatus } from "@/lib/db/schema";
-import { replayUrl } from "@/lib/analytics-config";
-import { leadSourceLabel, leadThreadHref } from "@/lib/lead-sources";
-import { cn, formatDateTime, formatPhoneDisplay, telHref, whatsappHref } from "@/lib/utils";
-import { ConfirmButton, SubmitButton } from "./ui";
+import { OPEN_LEAD_STATUSES } from "@/lib/db/schema";
+import { leadSourceLabel } from "@/lib/lead-sources";
+import { daysAgo, formatWhen, NEXT_LABEL, STAGE_TONE, stageLabel, TEMPERATURE_LABEL, TEMPERATURE_TONE } from "@/lib/leads/labels";
+import { cn, formatPhoneDisplay, telHref, whatsappHref } from "@/lib/utils";
 
-const statusTone: Record<LeadStatus, string> = {
-  new: "bg-gold-100 text-gold-800",
-  contacted: "bg-navy-100 text-navy-700",
-  qualified: "bg-success-100 text-success-700",
-  closed: "bg-muted-100 text-muted-600",
-};
-
-const statusLabel: Record<LeadStatus, string> = { new: "New", contacted: "Contacted", qualified: "Qualified", closed: "Closed" };
-const kindLabel: Record<LeadKind, string> = { buy: "Wants to buy", sell: "Wants to sell" };
-const purposeLabel = { self_use: "Own use", investment: "Investment", other: "Other" } as const;
-
-export function LeadRow({ lead, compact = false, company }: { lead: LeadWithRefs; compact?: boolean; company: string }) {
+/**
+ * One lead in a list: who, about what, where it stands and what is due. The whole row opens
+ * the lead's own page, where its history and the after-call form are; the two buttons are
+ * for calling or writing without opening it.
+ */
+export function LeadRow({ lead, company, now = new Date() }: { lead: LeadWithRefs; company: string; now?: Date }) {
   const selling = lead.kind === "sell";
-  // What a customer wrote stays as they wrote it. What the office wrote about a lead it added
-  // itself is its own note, so it is shown once, in the box where it can be changed.
-  const byOffice = lead.source.startsWith("office:");
-  const theirWords = byOffice ? "" : lead.message;
-  const notes = byOffice ? [lead.message, lead.notes].filter(Boolean).join("\n") : lead.notes;
-  const subject = [lead.ref, lead.subject].filter(Boolean).join(" · ");
-  const hello = lead.name ? `Namaskara ${lead.name}` : "Namaskara";
+  const open = (OPEN_LEAD_STATUSES as readonly string[]).includes(lead.status);
+  const late = open && lead.nextAt && lead.nextAt.getTime() < now.getTime();
+  const hello = lead.name && !lead.name.startsWith("@") ? `Namaskara ${lead.name}` : "Namaskara";
   const waText = selling
     ? `${hello}, this is ${company}. Thank you for telling us about your property. When would be a good time to visit it?`
     : `${hello}, this is ${company}. Thank you for your enquiry${lead.ref ? ` about ${lead.ref}` : ""}. When would be a good time to talk?`;
+  const about = [lead.subject ?? (lead.ref ? "" : selling ? "Property for sale" : "General enquiry"), lead.budget, lead.timeline].filter(Boolean).join(" · ");
   return (
-    <article className="card p-4 sm:p-5">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className={cn("text-[1.05rem] leading-snug", !lead.name && "italic text-ink-500")}>{lead.name || "No name given"}</h3>
-            <span className={cn("badge", statusTone[lead.status])}>{statusLabel[lead.status]}</span>
-            {!lead.sent ? (
-              <span className="badge bg-danger-100 text-danger-700" data-unsent>
-                Not sent
-              </span>
-            ) : null}
-            <span className={cn("badge", selling ? "bg-navy-900 text-gold-200" : "bg-paper-200 text-ink-700")}>{kindLabel[lead.kind]}</span>
-            {lead.locale === "kn" ? <span className="badge bg-paper-200 text-ink-700">ಕನ್ನಡ</span> : null}
-            <span className="num text-xs text-ink-400">{formatDateTime(lead.createdAt)}</span>
-          </div>
-          <p className="mt-1.5 text-[14px] text-ink-700">
-            {lead.ref ? <span className="num mr-2 font-semibold text-navy-900">{lead.ref}</span> : null}
-            {lead.subject ?? (subject ? "" : selling ? "Property for sale" : "General enquiry")}
-            {!selling && lead.purpose ? ` · ${purposeLabel[lead.purpose]}` : ""}
-            {lead.budget ? ` · ${lead.budget}` : ""}
-            {lead.timeline ? ` · ${lead.timeline}` : ""}
-          </p>
+    <article className="card card-hover relative flex items-stretch gap-3 p-3.5 sm:p-4" data-lead={lead.id}>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <h3 className={cn("text-[1.02rem] leading-snug", !lead.name && "italic text-ink-500")}>
+            <Link href={`/admin/leads/${lead.id}`} className="after:absolute after:inset-0" data-lead-open>
+              {lead.name || "No name given"}
+            </Link>
+          </h3>
+          <span className={cn("badge", STAGE_TONE[lead.status])}>{stageLabel(lead.status, lead.kind)}</span>
+          {lead.temperature ? <span className={cn("badge", TEMPERATURE_TONE[lead.temperature])}>{TEMPERATURE_LABEL[lead.temperature]}</span> : null}
+          {selling ? <span className="badge bg-navy-900 text-gold-200">Wants to sell</span> : null}
           {!lead.sent ? (
-            <p className="mt-1 text-[12.5px] font-medium text-danger-700">They typed their number on the quick enquiry card but did not press send. Worth a call.</p>
+            <span className="badge bg-danger-100 text-danger-700" data-unsent>
+              Not sent
+            </span>
           ) : null}
-          {leadSourceLabel(lead.source) ? <p className="mt-1 text-[12.5px] text-ink-500">{leadSourceLabel(lead.source)}</p> : null}
-          {theirWords ? (
-            <p className="mt-2 whitespace-pre-line rounded-[3px] bg-paper-100 px-3 py-2 text-[14px] text-ink-700" data-lead-message>
-              {theirWords}
-            </p>
-          ) : null}
-          <div className="mt-3 flex flex-wrap gap-2">
-            <a href={telHref(lead.phone)} className="btn-primary btn-sm">
-              <Phone className="h-3.5 w-3.5" aria-hidden="true" /> <span className="num">{formatPhoneDisplay(lead.phone)}</span>
-            </a>
-            <a href={whatsappHref(lead.phone, waText)} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm">
-              <WhatsAppIcon className="h-3.5 w-3.5" /> WhatsApp
-            </a>
-            {leadThreadHref(lead.source) ? (
-              <Link href={leadThreadHref(lead.source)!} className="btn-ghost btn-sm" data-lead-thread>
-                <Inbox className="h-3.5 w-3.5" aria-hidden="true" /> Open the conversation
-              </Link>
-            ) : null}
-            {lead.sessionId ? (
-              <a href={replayUrl(lead.sessionId)} target="_blank" rel="noopener noreferrer" className="btn-ghost btn-sm" data-replay>
-                <PlayCircle className="h-3.5 w-3.5" aria-hidden="true" /> Watch their visit
-              </a>
-            ) : null}
-            {lead.email ? (
-              <a href={`mailto:${lead.email}`} className="btn-ghost btn-sm">
-                <Mail className="h-3.5 w-3.5" aria-hidden="true" /> {lead.email}
-              </a>
-            ) : null}
-          </div>
         </div>
-        {!compact ? (
-          <form action={updateLeadNotes.bind(null, lead.id)} className="w-full space-y-2 md:w-80">
-            <div className="grid grid-cols-2 gap-2">
-              <select name="status" defaultValue={lead.status} className="field !py-2 text-[14px]" aria-label="Status">
-                {LEAD_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {statusLabel[s]}
-                  </option>
-                ))}
-              </select>
-              <select name="kind" defaultValue={lead.kind} className="field !py-2 text-[14px]" aria-label="Buying or selling">
-                {LEAD_KINDS.map((k) => (
-                  <option key={k} value={k}>
-                    {kindLabel[k]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <textarea name="notes" defaultValue={notes} rows={byOffice ? 3 : 2} maxLength={2000} placeholder={byOffice ? "Notes" : "Follow-up notes"} className="field text-[14px]" aria-label="Notes" />
-            <div className="flex items-center justify-between gap-2">
-              <SubmitButton className="btn-sm">Save</SubmitButton>
-              <ConfirmButton action={deleteLead.bind(null, lead.id)} />
-            </div>
-          </form>
-        ) : null}
+        <p className="mt-1 truncate text-[13.5px] text-ink-700">
+          {lead.ref ? <span className="num mr-2 font-semibold text-navy-900">{lead.ref}</span> : null}
+          {about}
+        </p>
+        <p className={cn("mt-1 flex flex-wrap items-center gap-x-1.5 text-[12.5px]", late ? "font-semibold text-danger-700" : "text-ink-500")}>
+          {open && lead.nextAt ? (
+            <>
+              <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
+              {late ? "Overdue: " : ""}
+              {NEXT_LABEL[lead.nextKind]} <span className="num">{formatWhen(lead.nextAt, now)}</span>
+              {lead.nextNote ? <span className="font-normal text-ink-500">· {lead.nextNote}</span> : null}
+            </>
+          ) : (
+            <>
+              Came in {daysAgo(lead.createdAt, now)}
+              {lead.lastContactAt ? ` · last contact ${daysAgo(lead.lastContactAt, now)}` : open ? " · not contacted yet" : ""}
+              {leadSourceLabel(lead.source) ? ` · ${leadSourceLabel(lead.source)}` : ""}
+            </>
+          )}
+        </p>
       </div>
-      {compact && notes ? <p className="mt-3 whitespace-pre-line text-xs text-ink-500">Notes: {notes}</p> : null}
+      <div className="relative z-10 flex shrink-0 items-center gap-1.5">
+        <a href={telHref(lead.phone)} className="inline-flex h-11 w-11 items-center justify-center rounded-[3px] bg-navy-900 text-paper-50 hover:bg-navy-800" aria-label={`Call ${formatPhoneDisplay(lead.phone)}`} title={formatPhoneDisplay(lead.phone)}>
+          <Phone className="h-[18px] w-[18px]" aria-hidden="true" />
+        </a>
+        <a href={whatsappHref(lead.phone, waText)} target="_blank" rel="noopener noreferrer" className="inline-flex h-11 w-11 items-center justify-center rounded-[3px] border border-navy-900/20 bg-paper-0 text-navy-900 hover:border-navy-800" aria-label="WhatsApp">
+          <WhatsAppIcon className="h-[18px] w-[18px]" />
+        </a>
+        <ChevronRight className="hidden h-5 w-5 text-ink-400 sm:block" aria-hidden="true" />
+      </div>
     </article>
   );
 }

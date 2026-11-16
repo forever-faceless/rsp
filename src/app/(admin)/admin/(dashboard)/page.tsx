@@ -1,20 +1,39 @@
-import { Building2, FolderKanban, MapPinned, MessageSquareText, Plus } from "lucide-react";
+import { Building2, CalendarPlus, FolderKanban, MapPinned, MessageSquareText, Plus } from "lucide-react";
 import Link from "next/link";
 import { LeadRow } from "@/components/admin/LeadRow";
 import { ConfirmButton, PageHeader, StatCard } from "@/components/admin/ui";
 import { clearDemoContent } from "@/lib/actions/settings";
-import { getDashboardStats, getSettings, listRegions } from "@/lib/db/queries";
+import { getDashboardStats, getSettings, listRegions, type LeadWithRefs } from "@/lib/db/queries";
+import { calendarKey, getDesk } from "@/lib/leads/desk";
+import { siteUrl } from "@/lib/site-url";
 import { formatPropertyNo } from "@/lib/refs";
 
-export const metadata = { title: "Dashboard" };
+export const metadata = { title: "Today" };
 
 export default async function AdminDashboard() {
-  const [stats, settings, regions] = await Promise.all([getDashboardStats(), getSettings(), listRegions()]);
+  const [stats, settings, regions, desk] = await Promise.all([getDashboardStats(), getSettings(), listRegions(), getDesk()]);
+  const now = new Date();
+  const groups: { key: string; title: string; note: string; leads: LeadWithRefs[]; tone?: string }[] = [
+    { key: "overdue", title: "Overdue", note: "These were due and have not been done.", leads: desk.overdue, tone: "text-danger-700" },
+    { key: "today", title: "Later today", note: "", leads: desk.today },
+    { key: "fresh", title: "New, not contacted yet", note: "Call these first. A lead answered within minutes is far more likely to give a number.", leads: desk.fresh },
+    { key: "drifting", title: "Nothing planned", note: "You have spoken to these, and nothing is set to happen next. Open each one and set the next step, or mark it lost.", leads: desk.drifting },
+    { key: "upcoming", title: "Coming up this week", note: "", leads: desk.upcoming },
+  ].filter((g) => g.leads.length);
+  const toDo = desk.overdue.length + desk.today.length + desk.fresh.length;
   const missing = [!settings.phonePrimary && "phone number", !settings.addressEn && "office address", !settings.email && "email"].filter(Boolean) as string[];
 
   return (
     <>
-      <PageHeader title="Dashboard" description={`Next property numbers: ${regions.map((r) => formatPropertyNo(r.code, r.nextNo)).join(", ")}.`} />
+      <PageHeader
+        title="Today"
+        description={toDo ? `${toDo} ${toDo === 1 ? "lead needs" : "leads need"} you today.` : "Nothing is waiting on you right now."}
+        actions={
+          <a href={`${siteUrl().replace(/^https?:/, "webcal:")}/api/calendar/${calendarKey()}`} className="btn-outline btn-sm" data-calendar-link>
+            <CalendarPlus className="h-4 w-4" aria-hidden="true" /> Add to my phone calendar
+          </a>
+        }
+      />
 
       {settings.demoContent ? (
         <div className="mb-6 rounded-[4px] border border-warning-600/30 bg-warning-100 p-4 sm:p-5">
@@ -38,6 +57,32 @@ export default async function AdminDashboard() {
         </p>
       ) : null}
 
+      <div className="space-y-8" data-desk>
+        {groups.map((g) => (
+          <section key={g.key} data-desk-group={g.key}>
+            <div className="mb-3">
+              <h2 className={`text-[1.2rem] ${g.tone ?? ""}`}>
+                {g.title} <span className="num text-[0.95rem] font-normal text-ink-500">{g.leads.length}</span>
+              </h2>
+              {g.note ? <p className="mt-1 max-w-2xl text-[13.5px] text-ink-600">{g.note}</p> : null}
+            </div>
+            <div className="space-y-2.5">
+              {g.leads.slice(0, 12).map((lead) => (
+                <LeadRow key={lead.id} lead={lead} company={settings.companyNameEn} now={now} />
+              ))}
+            </div>
+            {g.leads.length > 12 ? (
+              <Link href="/admin/leads?view=open" className="mt-3 inline-block text-[13.5px] font-semibold text-navy-800 underline decoration-gold-500 decoration-2 underline-offset-4">
+                See all {g.leads.length}
+              </Link>
+            ) : null}
+          </section>
+        ))}
+        {!groups.length ? <p className="card p-8 text-center text-[14px] text-ink-500">No leads to follow up. They appear here as soon as a visitor leaves a number, or when you add one.</p> : null}
+      </div>
+
+      <h2 className="mb-3 mt-12 text-[1.2rem]">The register</h2>
+      <p className="mb-4 text-[13.5px] text-ink-600">{`Next property numbers: ${regions.map((r) => formatPropertyNo(r.code, r.nextNo)).join(", ")}.`}</p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         {[
           { href: "/admin/surveys/new", label: "New survey", note: "On the site", icon: MapPinned, primary: true },
@@ -61,29 +106,12 @@ export default async function AdminDashboard() {
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="New leads" value={stats.leads.new} hint={`${stats.leads.contacted} contacted, ${stats.leads.qualified} qualified`} href="/admin/leads?status=new" />
+        <StatCard label="New leads" value={stats.leads.new} hint={`${stats.leads.contacted} talked to, ${stats.leads.visit_booked} with a visit booked`} href="/admin/leads?status=new" />
         <StatCard label="Properties" value={stats.properties} hint={`${stats.availableProperties} available, ${stats.draftProperties} draft`} href="/admin/properties" />
         <StatCard label="Sites in projects" value={stats.sites} hint={`${stats.availableSites} available in ${stats.projects} projects`} href="/admin/projects" />
         <StatCard label="Surveys" value={stats.surveys} hint={stats.looseSurveys ? `${stats.looseSurveys} not attached yet` : "All attached"} href="/admin/surveys" />
       </div>
 
-      <div className="mt-10">
-        <div className="mb-4 flex items-end justify-between">
-          <h2 className="text-[1.25rem]">Recent leads</h2>
-          <Link href="/admin/leads" className="text-[13.5px] font-semibold text-navy-800 underline decoration-gold-500 decoration-2 underline-offset-4">
-            View all
-          </Link>
-        </div>
-        {stats.recentLeads.length ? (
-          <div className="space-y-3">
-            {stats.recentLeads.map((lead) => (
-              <LeadRow key={lead.id} lead={lead} compact company={settings.companyNameEn} />
-            ))}
-          </div>
-        ) : (
-          <p className="card p-8 text-center text-[14px] text-ink-500">No leads yet. They appear here as soon as a visitor leaves a number, or when you add one.</p>
-        )}
-      </div>
     </>
   );
 }

@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import type { Approval, BilingualItem, SurveyCorner, SurveyMeasure, SurveyPoint, VideoItem } from "./enums";
-import { AREA_UNITS, FACINGS, IG_MESSAGE_KINDS, IG_POST_KINDS, IG_POST_STATUSES, IG_SENDERS, IG_STATES, IG_TOPICS, LANDMARK_CATEGORIES, LEAD_KINDS, LEAD_PURPOSE_ANSWERS, LEAD_STATUSES, LISTING_SOURCES, LISTING_STATUSES, PRICE_DISPLAYS, PROJECT_STATUSES, PROPERTY_TYPES } from "./enums";
+import { AREA_UNITS, FACINGS, IG_MESSAGE_KINDS, IG_POST_KINDS, IG_POST_STATUSES, IG_SENDERS, IG_STATES, IG_TOPICS, LANDMARK_CATEGORIES, CONTACT_OUTCOMES, LEAD_EVENT_KINDS, LEAD_KINDS, LEAD_PURPOSE_ANSWERS, LEAD_STATUSES, LEAD_TEMPERATURES, LISTING_SOURCES, LISTING_STATUSES, LOST_REASONS, NEXT_KINDS, PRICE_DISPLAYS, PROJECT_STATUSES, PROPERTY_TYPES } from "./enums";
 
 export * from "./enums";
 
@@ -362,6 +362,14 @@ export const leads = sqliteTable("leads", {
   source: text("source").notNull().default(""),
   status: text("status", { enum: LEAD_STATUSES }).notNull().default("new"),
   notes: text("notes").notNull().default(""),
+  temperature: text("temperature", { enum: LEAD_TEMPERATURES }).notNull().default(""),
+  /** The one thing to do next, and when. A lead that is still open should always have one. */
+  nextKind: text("next_kind", { enum: NEXT_KINDS }).notNull().default(""),
+  nextNote: text("next_note").notNull().default(""),
+  nextAt: integer("next_at", { mode: "timestamp" }),
+  /** The last time the office spoke to them or tried to. */
+  lastContactAt: integer("last_contact_at", { mode: "timestamp" }),
+  lostReason: text("lost_reason", { enum: ["", ...LOST_REASONS] }).notNull().default(""),
   isDemo: integer("is_demo", { mode: "boolean" }).notNull().default(false),
   /**
    * A random key held by the visitor's browser, so the quick enquiry card keeps adding to one
@@ -376,6 +384,36 @@ export const leads = sqliteTable("leads", {
     .notNull()
     .default(sql`(unixepoch())`),
 }, (t) => [uniqueIndex("leads_draft_key_unique").on(t.draftKey).where(sql`draft_key <> ''`)]);
+
+/** The history of a lead: every call, visit, note and change of stage, newest shown first. */
+export const leadEvents = sqliteTable("lead_events", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  leadId: integer("lead_id")
+    .notNull()
+    .references(() => leads.id, { onDelete: "cascade" }),
+  kind: text("kind", { enum: LEAD_EVENT_KINDS }).notNull(),
+  /** For a call: whether they rang the office or the office rang them. */
+  direction: text("direction", { enum: ["", "in", "out"] }).notNull().default(""),
+  outcome: text("outcome", { enum: ["", ...CONTACT_OUTCOMES] }).notNull().default(""),
+  text: text("text").notNull().default(""),
+  durationSec: integer("duration_sec"),
+  /** Who in the office wrote it. */
+  by: text("by").notNull().default(""),
+  at: integer("at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+/** A spoken note recorded after a call. Kept in the register itself, never at a public address. */
+export const leadAudio = sqliteTable("lead_audio", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  eventId: integer("event_id")
+    .notNull()
+    .references(() => leadEvents.id, { onDelete: "cascade" }),
+  mime: text("mime").notNull().default("audio/webm"),
+  /** The sound itself, base64. A minute of speech is about 100 KB. */
+  data: text("data").notNull(),
+});
 
 // ---------------------------------------------------------------- Instagram desk
 
@@ -549,4 +587,5 @@ export type NewTeamMember = typeof teamMembers.$inferInsert;
 export type Testimonial = typeof testimonials.$inferSelect;
 export type NewTestimonial = typeof testimonials.$inferInsert;
 export type Lead = typeof leads.$inferSelect;
+export type LeadEvent = typeof leadEvents.$inferSelect;
 export type NewLead = typeof leads.$inferInsert;

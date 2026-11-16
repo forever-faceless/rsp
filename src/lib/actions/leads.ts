@@ -4,8 +4,31 @@ import { eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
+import { parseIstInput } from "@/lib/utils";
 import { getDb } from "@/lib/db/client";
-import { LEAD_KINDS, LEAD_PURPOSE_ANSWERS, LEAD_STATUSES, leads, projects, properties, sites, type LeadKind, type LeadPurposeAnswer, type LeadStatus } from "@/lib/db/schema";
+import {
+  CONTACT_OUTCOMES,
+  LEAD_KINDS,
+  LEAD_PURPOSE_ANSWERS,
+  LEAD_STATUSES,
+  LEAD_TEMPERATURES,
+  LOST_REASONS,
+  NEXT_KINDS,
+  OPEN_LEAD_STATUSES,
+  leadEvents,
+  leads,
+  projects,
+  properties,
+  sites,
+  type ContactOutcome,
+  type LeadKind,
+  type LeadPurposeAnswer,
+  type LeadStatus,
+  type LeadTemperature,
+  type LostReason,
+  type NextKind,
+} from "@/lib/db/schema";
+import { stageLabel } from "@/lib/leads/labels";
 import type { ActionState } from "@/lib/forms";
 import { isLeadChannel } from "@/lib/lead-sources";
 import { formatRef } from "@/lib/refs";
@@ -81,28 +104,97 @@ export async function addLead(_prev: ActionState, formData: FormData): Promise<A
     })
     .returning({ id: leads.id });
   revalidatePath("/admin", "layout");
-  redirect(`/admin/leads?added=${row.id}`);
+  redirect(`/admin/leads/${row.id}?added=1`);
 }
 
-export async function updateLeadNotes(id: number, formData: FormData): Promise<void> {
+const oneOf = <T extends string>(list: readonly T[], value: string, fallback: T): T => (list.includes(value as T) ? (value as T) : fallback);
+
+/**
+ * What the office fills in after a call, a visit or a message: how it went, where the lead now
+ * stands, and the one thing to do next. A lead that is still open cannot be saved without a
+ * next step, which is what keeps it from being forgotten.
+ */
+export async function logContact(id: number, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requireAdmin();
+  const get = (key: string) => String(formData.get(key) ?? "").trim();
+  const db = await getDb();
+  const [lead] = await db.select().from(leads).where(eq(leads.id, id));
+  if (!lead) return { error: "That lead no longer exists." };
+
+  const kind = oneOf(["call", "visit", "whatsapp", "note"] as const, get("kind"), "note");
+  const outcome = kind === "call" || kind === "visit" ? oneOf(["", ...CONTACT_OUTCOMES] as const, get("outcome"), "") : "";
+  const text = get("text").slice(0, 2000);
+  const nextKind = oneOf(NEXT_KINDS, get("nextKind"), "") as NextKind;
+  const nextAt = parseIstInput(get("nextAt"));
+  let status = oneOf(LEAD_STATUSES, get("status"), lead.status) as LeadStatus;
+  const fieldErrors: Record<string, string> = {};
+  if ((kind === "call" || kind === "visit") && !outcome) fieldErrors.outcome = "Choose how it went.";
+  if (kind === "note" && !text) fieldErrors.text = "Write the note.";
+
+  // The stage follows what happened, and only ever forwards.
+  const order = (v: LeadStatus) => LEAD_STATUSES.indexOf(v);
+  const atLeast = (v: LeadStatus) => {
+    if (status !== "lost" && order(status) < order(v)) status = v;
+  };
+  if (outcome === "talked" || kind === "whatsapp") atLeast("contacted");
+  if (nextKind === "visit" && outcome !== "came") atLeast("visit_booked");
+  if (outcome === "came") atLeast("visited");
+
+  const open = (OPEN_LEAD_STATUSES as readonly string[]).includes(status);
+  const lostReason = status === "lost" ? (oneOf(["", ...LOST_REASONS] as const, get("lostReason"), "") as LostReason | "") : "";
+  if (status === "lost" && !lostReason) fieldErrors.lostReason = "Choose why.";
+  if (open && (!nextKind || !nextAt)) fieldErrors.nextAt = "Choose what happens next and when.";
+  if (Object.keys(fieldErrors).length) return { error: Object.values(fieldErrors)[0], fieldErrors };
+
+  const now = new Date();
+  const moved = status !== lead.status ? `${stageLabel(lead.status, lead.kind)} to ${stageLabel(status, lead.kind)}` : "";
+  await db.insert(leadEvents).values({
+    leadId: id,
+    kind,
+    direction: kind === "call" ? oneOf(["in", "out"] as const, get("direction"), "out") : "",
+    outcome: outcome as ContactOutcome | "",
+    text: [text, moved ? `Stage: ${moved}.` : ""].filter(Boolean).join("\n"),
+    by: session.user,
+    at: now,
+  });
+  await db
+    .update(leads)
+    .set({
+      status,
+      temperature: oneOf(LEAD_TEMPERATURES, get("temperature"), lead.temperature) as LeadTemperature,
+      nextKind: open ? nextKind : "",
+      nextNote: open ? get("nextNote").slice(0, 200) : "",
+      nextAt: open ? nextAt : null,
+      lostReason,
+      ...(kind === "note" ? {} : { lastContactAt: now }),
+    })
+    .where(eq(leads.id, id));
+  revalidatePath("/admin", "layout");
+  return { success: open ? "Saved. The next step is on your list." : "Saved." };
+}
+
+/** The facts about the person, changed from the lead's own page. */
+export async function updateLeadDetails(id: number, _prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
-  const notes = String(formData.get("notes") ?? "").slice(0, 2000);
-  const statusRaw = String(formData.get("status") ?? "");
-  const kindRaw = String(formData.get("kind") ?? "");
+  const get = (key: string) => String(formData.get(key) ?? "").trim();
+  const purpose = get("purpose");
   const db = await getDb();
   await db
     .update(leads)
     .set({
-      notes,
-      // An older lead added by the office kept its first note apart; the Leads page shows the two
-      // as one, so once saved they are one.
+      name: get("name").slice(0, 80),
+      kind: oneOf(LEAD_KINDS, get("kind"), "buy") as LeadKind,
+      purpose: (LEAD_PURPOSE_ANSWERS as readonly string[]).includes(purpose) ? (purpose as LeadPurposeAnswer) : "",
+      budget: get("budget").slice(0, 60),
+      timeline: get("timeline").slice(0, 60),
+      notes: get("notes").slice(0, 2000),
+      // An older lead added by the office kept its first note apart; the page shows the two as
+      // one, so once saved they are one.
       message: sql`case when ${leads.source} like 'office:%' then '' else ${leads.message} end`,
-      ...(LEAD_STATUSES.includes(statusRaw as LeadStatus) ? { status: statusRaw as LeadStatus } : {}),
-      // Someone taken for a buyer who turns out to have a property to sell, or the other way round.
-      ...(LEAD_KINDS.includes(kindRaw as LeadKind) ? { kind: kindRaw as LeadKind } : {}),
     })
     .where(eq(leads.id, id));
   revalidatePath("/admin", "layout");
+  return { success: "Saved." };
 }
 
 export async function deleteLead(id: number): Promise<void> {
@@ -110,4 +202,5 @@ export async function deleteLead(id: number): Promise<void> {
   const db = await getDb();
   await db.delete(leads).where(eq(leads.id, id));
   revalidatePath("/admin", "layout");
+  redirect("/admin/leads");
 }

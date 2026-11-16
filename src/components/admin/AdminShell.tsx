@@ -4,29 +4,29 @@ import { Building2, CalendarClock, ExternalLink, FolderKanban, Inbox, LayoutDash
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { logout } from "@/lib/actions/auth";
 import { markStaffBrowser } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
-type Item = { href: string; label: string; short: string; icon: LucideIcon; exact?: boolean };
+type Item = { href: string; label: string; short: string; icon: LucideIcon; exact?: boolean; group: string };
 
 const nav: Item[] = [
-  { href: "/admin", label: "Dashboard", short: "Home", icon: LayoutDashboard, exact: true },
-  { href: "/admin/properties", label: "Properties", short: "Properties", icon: Building2 },
-  { href: "/admin/projects", label: "Projects and sites", short: "Projects", icon: FolderKanban },
-  { href: "/admin/surveys", label: "Field surveys", short: "Survey", icon: MapPinned },
-  { href: "/admin/inbox", label: "Inbox", short: "Inbox", icon: Inbox },
-  { href: "/admin/posts", label: "Posts", short: "Posts", icon: CalendarClock },
-  { href: "/admin/leads", label: "Leads", short: "Leads", icon: MessageSquareText },
-  { href: "/admin/brokers", label: "Brokers", short: "Brokers", icon: Handshake },
-  { href: "/admin/testimonials", label: "Testimonials", short: "Testimonials", icon: Quote },
-  { href: "/admin/team", label: "Team", short: "Team", icon: Users },
-  { href: "/admin/settings", label: "Company settings", short: "Settings", icon: Settings },
+  { href: "/admin", label: "Today", short: "Today", icon: LayoutDashboard, exact: true, group: "Follow up" },
+  { href: "/admin/leads", label: "Leads", short: "Leads", icon: MessageSquareText, group: "Follow up" },
+  { href: "/admin/inbox", label: "Instagram inbox", short: "Inbox", icon: Inbox, group: "Follow up" },
+  { href: "/admin/properties", label: "Properties", short: "Properties", icon: Building2, group: "Listings" },
+  { href: "/admin/projects", label: "Projects and sites", short: "Projects", icon: FolderKanban, group: "Listings" },
+  { href: "/admin/surveys", label: "Field surveys", short: "Survey", icon: MapPinned, group: "Listings" },
+  { href: "/admin/posts", label: "Posts", short: "Posts", icon: CalendarClock, group: "Listings" },
+  { href: "/admin/brokers", label: "Brokers", short: "Brokers", icon: Handshake, group: "Office" },
+  { href: "/admin/testimonials", label: "Testimonials", short: "Testimonials", icon: Quote, group: "Office" },
+  { href: "/admin/team", label: "Team", short: "Team", icon: Users, group: "Office" },
+  { href: "/admin/settings", label: "Company settings", short: "Settings", icon: Settings, group: "Office" },
 ];
 
 /** The destinations that matter on a phone: the survey tool in the middle, the Instagram inbox and the leads beside it. */
-const tabs = ["/admin", "/admin/properties", "/admin/surveys", "/admin/inbox", "/admin/leads"];
+const tabs = ["/admin", "/admin/leads", "/admin/surveys", "/admin/inbox", "/admin/properties"];
 /** Sections that open from another one and light up its menu entry. */
 const under: Record<string, string[]> = { "/admin/inbox": ["/admin/instagram"] };
 
@@ -50,11 +50,12 @@ export function AdminShell({ user, newLeads, inboxWaiting = 0, children }: { use
 
   const links = (
     <nav className="space-y-0.5" aria-label="Admin">
-      {nav.map((item) => {
+      {nav.map((item, i) => {
         const active = isActive(item);
         return (
+          <Fragment key={item.href}>
+            {nav[i - 1]?.group !== item.group ? <p className={cn("px-3 pb-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-navy-400", i > 0 && "pt-5")}>{item.group}</p> : null}
           <Link
-            key={item.href}
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
@@ -66,6 +67,7 @@ export function AdminShell({ user, newLeads, inboxWaiting = 0, children }: { use
             <span className="flex-1">{item.label}</span>
             {badges[item.href] > 0 ? <span className="num rounded-[2px] bg-gold-400 px-1.5 py-0.5 text-[11px] font-semibold text-navy-950">{badges[item.href]}</span> : null}
           </Link>
+          </Fragment>
         );
       })}
     </nav>
@@ -96,7 +98,7 @@ export function AdminShell({ user, newLeads, inboxWaiting = 0, children }: { use
       <aside className="surface-navy sticky top-0 hidden h-dvh flex-col justify-between overflow-y-auto p-4 lg:flex">
         <div>
           <div className="px-2 py-2">{brand}</div>
-          <div className="mt-7">{links}</div>
+          <div className="mt-6">{links}</div>
         </div>
         {footer}
       </aside>

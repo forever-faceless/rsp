@@ -40,8 +40,33 @@ export const LANDMARK_CATEGORIES = [
 ] as const;
 export type LandmarkCategory = (typeof LANDMARK_CATEGORIES)[number];
 
-export const LEAD_STATUSES = ["new", "contacted", "qualified", "closed"] as const;
+/**
+ * Where a lead stands, in the order a sale moves. "contacted" is shown as "Talked". For someone
+ * selling, "advance" reads as listed and "registered" as sold.
+ */
+export const LEAD_STATUSES = ["new", "contacted", "visit_booked", "visited", "negotiating", "advance", "registered", "lost"] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
+/** The stages that still need the office to do something. */
+export const OPEN_LEAD_STATUSES = ["new", "contacted", "visit_booked", "visited", "negotiating", "advance"] as const;
+
+/** How likely the office thinks the lead is to go through, set by hand after talking to them. */
+export const LEAD_TEMPERATURES = ["", "hot", "warm", "cold"] as const;
+export type LeadTemperature = (typeof LEAD_TEMPERATURES)[number];
+
+/** The one thing the office has to do next for a lead. */
+export const NEXT_KINDS = ["", "call", "visit", "send", "other"] as const;
+export type NextKind = (typeof NEXT_KINDS)[number];
+
+/** What is written into a lead's history. */
+export const LEAD_EVENT_KINDS = ["call", "visit", "whatsapp", "note", "stage"] as const;
+export type LeadEventKind = (typeof LEAD_EVENT_KINDS)[number];
+
+/** How a call or a visit went. */
+export const CONTACT_OUTCOMES = ["talked", "no_answer", "busy", "wrong_number", "came", "did_not_come"] as const;
+export type ContactOutcome = (typeof CONTACT_OUTCOMES)[number];
+
+export const LOST_REASONS = ["budget", "bought_elsewhere", "location", "unreachable", "just_looking", "other"] as const;
+export type LostReason = (typeof LOST_REASONS)[number];
 
 export const LEAD_KINDS = ["buy", "sell"] as const;
 export type LeadKind = (typeof LEAD_KINDS)[number];

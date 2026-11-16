@@ -118,7 +118,7 @@ export function PropertyForm({ property, action, submitLabel = "Save property", 
         <p className="help">The figure you choose not to show stays here for your own reference. With nothing to show, the website says “Call for price”.</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <Checkbox label="Slightly negotiable" name="negotiable" defaultChecked={property?.negotiable ?? false} hint="Shown beside the price on the website, in these words." />
-          <Checkbox label="Show “Call for price” on the website" name="callForPrice" defaultChecked={property?.callForPrice ?? false} hint="The figures above stay here for your own reference and are not shown to visitors." />
+          <Checkbox label="Show “Call for price” on the website" name="callForPrice" defaultChecked={property?.callForPrice ?? false} hint="The figures above are then never shown on the website or sent in any message. They appear only here and beside a lead, for when someone asks on a call." />
         </div>
       </Group>
 
